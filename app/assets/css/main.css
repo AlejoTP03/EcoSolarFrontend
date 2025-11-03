@@ -1,1 +1,10 @@
+/* Todos los @import deben ir primero */
+@import url('https://fonts.googleapis.com/css2?family=Petrona:wght@300;400;500;600;700;800&display=swap');
 @import "tailwindcss";
+@import "@nuxt/ui";
+
+/* Luego van las reglas CSS normales */
+body {
+  font-family: 'Petrona', serif;
+}
+
