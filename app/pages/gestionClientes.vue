@@ -1,4 +1,3 @@
-<!-- pages/clientes.vue -->
 <template>
     <div class="font-petrona w-full">
         <div class="font-petrona w-full">
@@ -7,7 +6,7 @@
                 
                 <!-- Botón Agregar -->
                 <div class="ml-auto">
-                    <NuxtLink to="/formularioCliente" @click.native="agregarCliente">
+                    <NuxtLink to="/formularioCliente">
                         <BottonAgregar 
                             :button-text="'Agregar Cliente'"
                         />
@@ -22,7 +21,7 @@
             <p class="mt-2 text-gray-600">Cargando clientes...</p>
         </div>
 
-        <div v-else-if="error" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded m-4">
+        <div v-else-if="error" class="bg-red-100 border border-red-400 text-red-400 px-4 py-3 rounded m-4">
             <p>Error al cargar los clientes: {{ error.message }}</p>
             <button 
                 @click="fetchClientes" 
@@ -88,16 +87,16 @@ const fetchClientes = async () => {
     
     try {
         const { data } = await useFetch('http://localhost:4000/client', {
-        method: 'GET',
-        headers: {
-            'Content-Type': 'application/json'
-        }
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json'
+            }
         })
         
         if (data.value && data.value['Todos los clientes']) {
-        clientes.value = data.value['Todos los clientes']
+            clientes.value = data.value['Todos los clientes']
         } else {
-        clientes.value = []
+            clientes.value = []
         }
         
     } catch (err) {
@@ -116,7 +115,8 @@ const agregarCliente = () => {
 
 const editarCliente = (cliente) => {
     console.log('Editar cliente:', cliente)
-    // Lógica para editar
+    // Navegar al formulario con el ID del cliente
+    navigateTo(`/formularioCliente?edit=${cliente.idClient}`)
 }
 
 // Eliminación con modal personalizado
@@ -128,24 +128,24 @@ const iniciarEliminacion = (cliente) => {
 const confirmarEliminacion = async () => {
     if (clienteAEliminar.value) {
         try {
-        await eliminarClienteBackend(clienteAEliminar.value.idClient)
-        
-        // Actualización local inmediata (sin recargar del backend)
-        const index = clientes.value.findIndex(cliente => 
-            cliente.idClient === clienteAEliminar.value.idClient
-        )
-        
-        if (index !== -1) {
-            clientes.value.splice(index, 1)
-        }
-        
-        // Cerrar modal y limpiar
-        showModalConfirmacion.value = false
-        clienteAEliminar.value = null
-        
+            await eliminarClienteBackend(clienteAEliminar.value.idClient)
+            
+            // Actualización local inmediata (sin recargar del backend)
+            const index = clientes.value.findIndex(cliente => 
+                cliente.idClient === clienteAEliminar.value.idClient
+            )
+            
+            if (index !== -1) {
+                clientes.value.splice(index, 1)
+            }
+            
+            // Cerrar modal y limpiar
+            showModalConfirmacion.value = false
+            clienteAEliminar.value = null
+            
         } catch (error) {
-        console.error('Error al eliminar:', error)
-        alert('Error al eliminar el cliente. Por favor, intenta nuevamente.')
+            console.error('Error al eliminar:', error)
+            alert('Error al eliminar el cliente. Por favor, intenta nuevamente.')
         }
     }
 }
@@ -159,7 +159,7 @@ const cancelarEliminacion = () => {
 const eliminarClienteBackend = async (idClient) => {
     try {
         await $fetch(`http://localhost:4000/client/${idClient}`, {
-        method: 'DELETE'
+            method: 'DELETE'
         })
         // Recargar la lista después de eliminar
         fetchClientes()

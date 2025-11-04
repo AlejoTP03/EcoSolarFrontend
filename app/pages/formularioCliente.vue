@@ -2,10 +2,10 @@
     <div class="min-h-screen bg-gray-50 flex justify-center items-center p-5 w-full">
         <div class="bg-[#0B2241] p-10 rounded-xl shadow-2xl w-full max-w-6xl">
             <h1 class="font-petrona text-white text-center mb-8 text-3xl font-bold">
-                Agregar Cliente
+                {{ esEdicion ? 'Editar Cliente' : 'Agregar Cliente' }}
             </h1>
             
-            <form @submit.prevent="agregarCliente" class="flex flex-col gap-6 w-full">
+            <form @submit.prevent="esEdicion ? actualizarCliente() : agregarCliente()" class="flex flex-col gap-6 w-full">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-8 w-full">
                     <!-- Columna izquierda -->
                     <div class="flex flex-col gap-6">
@@ -66,7 +66,7 @@
                         type="submit"
                         class="flex-1 px-6 py-3 bg-[#174785] text-white rounded-lg font-petrona font-semibold text-base cursor-pointer transition-all duration-300 ease-in-out hover:opacity-90 hover:-translate-y-0.5 active:translate-y-0"
                     >
-                        Agregar
+                        {{ esEdicion ? 'Actualizar' : 'Agregar' }}
                     </button>
                 </div>
             </form>
@@ -88,6 +88,11 @@
 import InputGenerico from '~/components/InputGenerico.vue'
 import ButtonGenerico from '~/components/ButtonGenerico.vue'
 import NotificacionEsquina from '~/components/NotificacionEsquina.vue'
+
+// Obtener parámetros de la URL
+const route = useRoute()
+const esEdicion = computed(() => !!route.query.edit)
+const clienteId = computed(() => route.query.edit)
 
 // Reactive data
 const formData = reactive({
@@ -112,7 +117,39 @@ const mostrarToast = (tipo, titulo, mensaje, duracion = 5000) => {
     mostrarNotificacion.value = true
 }
 
-// Métodos
+// Cargar datos del cliente si estamos en modo edición
+onMounted(async () => {
+    if (esEdicion.value && clienteId.value) {
+        await cargarCliente()
+    }
+})
+
+// Función para cargar datos del cliente
+const cargarCliente = async () => {
+    try {
+        const response = await $fetch(`http://localhost:4000/client/${clienteId.value}`)
+        
+        if (response && response['Cliente solicitado']) {
+            const cliente = response['Cliente solicitado']
+            
+            // Actualizar el formulario con los datos del cliente
+            Object.assign(formData, {
+                nombre: cliente.nombre,
+                apellido: cliente.apellido,
+                direccion: cliente.direccion,
+                telefono: cliente.telefono,
+                correo: cliente.correo
+            })
+            
+            console.log('✅ Cliente cargado correctamente:', formData)
+        }
+    } catch (error) {
+        console.error('Error al cargar cliente:', error)
+        mostrarToast('error', 'Error', 'No se pudo cargar la información del cliente')
+    }
+}
+
+// Método para agregar cliente
 const agregarCliente = async () => {
     try {
         console.log('Datos del cliente:', formData)
@@ -145,6 +182,46 @@ const agregarCliente = async () => {
     } catch (error) {
         console.error('Error al agregar cliente:', error)
         mostrarToast('error', 'Error', 'Error al agregar cliente. Por favor, intente nuevamente.')
+    }
+}
+
+// Método para actualizar cliente
+const actualizarCliente = async () => {
+    try {
+        console.log('Actualizando cliente:', formData)
+        
+        // Validar que todos los campos requeridos estén llenos
+        if (!formData.nombre || !formData.apellido || !formData.telefono || !formData.correo) {
+            mostrarToast('advertencia', 'Campos requeridos', 'Por favor, complete todos los campos requeridos')
+            return
+        }
+
+        // Actualizar datos en el servidor usando $fetch
+        const response = await $fetch(`http://localhost:4000/client/${clienteId.value}`, {
+            method: 'PUT',
+            body: {
+                nombre: formData.nombre,
+                apellido: formData.apellido,
+                direccion: formData.direccion,
+                telefono: formData.telefono,
+                correo: formData.correo
+            },
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+
+        console.log('Respuesta del servidor:', response)
+        mostrarToast('exito', 'Éxito', 'Cliente actualizado correctamente')
+        
+        // Navegar de vuelta a la gestión de clientes después de actualizar
+        setTimeout(() => {
+            navigateTo('/gestionClientes')
+        }, 1500)
+        
+    } catch (error) {
+        console.error('Error al actualizar cliente:', error)
+        mostrarToast('error', 'Error', 'Error al actualizar cliente. Por favor, intente nuevamente.')
     }
 }
 
