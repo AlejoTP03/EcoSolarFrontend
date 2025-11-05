@@ -57,7 +57,7 @@
                 </div>
 
                 <div class="flex gap-4 justify-center mt-6 w-full">
-                    <NuxtLink to="/gestionClientes" class="flex-1">
+                    <NuxtLink to="/gestionClientes" class="flex-1" @click="limpiarStorage">
                         <ButtonGenerico
                             texto="Cancelar"
                         />
@@ -109,6 +109,13 @@ const tipoNotificacion = ref('exito')
 const tituloNotificacion = ref('')
 const mensajeNotificacion = ref('')
 
+// Claves para localStorage
+const STORAGE_KEYS = {
+    FORM_DATA: 'cliente_form_data',
+    IS_EDITING: 'cliente_is_editing',
+    CLIENTE_ID: 'cliente_id'
+}
+
 // Método para mostrar notificaciones
 const mostrarToast = (tipo, titulo, mensaje, duracion = 5000) => {
     tipoNotificacion.value = tipo
@@ -117,16 +124,91 @@ const mostrarToast = (tipo, titulo, mensaje, duracion = 5000) => {
     mostrarNotificacion.value = true
 }
 
+// Guardar datos en localStorage
+const guardarEnStorage = () => {
+    if (typeof window !== 'undefined') {
+        localStorage.setItem(STORAGE_KEYS.FORM_DATA, JSON.stringify(formData))
+        localStorage.setItem(STORAGE_KEYS.IS_EDITING, JSON.stringify(esEdicion.value))
+        if (clienteId.value) {
+            localStorage.setItem(STORAGE_KEYS.CLIENTE_ID, clienteId.value)
+        }
+    }
+}
+
+// Cargar datos desde localStorage
+const cargarDesdeStorage = () => {
+    if (typeof window !== 'undefined') {
+        const savedFormData = localStorage.getItem(STORAGE_KEYS.FORM_DATA)
+        const savedIsEditing = localStorage.getItem(STORAGE_KEYS.IS_EDITING)
+        const savedClienteId = localStorage.getItem(STORAGE_KEYS.CLIENTE_ID)
+        
+        if (savedFormData) {
+            const parsedData = JSON.parse(savedFormData)
+            Object.assign(formData, parsedData)
+        }
+        
+        // Verificar si estamos en el mismo contexto de edición
+        if (savedIsEditing && savedClienteId) {
+            const isEditing = JSON.parse(savedIsEditing)
+            if (isEditing && savedClienteId === clienteId.value) {
+                console.log('✅ Cargando datos guardados del formulario')
+            }
+        }
+    }
+}
+
+// Limpiar localStorage
+const limpiarStorage = () => {
+    if (typeof window !== 'undefined') {
+        localStorage.removeItem(STORAGE_KEYS.FORM_DATA)
+        localStorage.removeItem(STORAGE_KEYS.IS_EDITING)
+        localStorage.removeItem(STORAGE_KEYS.CLIENTE_ID)
+    }
+}
+
 // Cargar datos del cliente si estamos en modo edición
 onMounted(async () => {
     if (esEdicion.value && clienteId.value) {
         await cargarCliente()
+    } else {
+        // Si no es edición, cargar datos guardados del formulario
+        cargarDesdeStorage()
     }
+})
+
+// Watch para guardar automáticamente cuando cambien los datos del formulario
+watch(formData, () => {
+    guardarEnStorage()
+}, { deep: true })
+
+// Watch para guardar cuando cambie el modo edición
+watch(esEdicion, () => {
+    guardarEnStorage()
+})
+
+// Watch para guardar cuando cambie el ID del cliente
+watch(clienteId, () => {
+    guardarEnStorage()
 })
 
 // Función para cargar datos del cliente
 const cargarCliente = async () => {
     try {
+        // Primero verificar si hay datos en cache
+        const cachedData = localStorage.getItem(`cliente_cache_${clienteId.value}`)
+        if (cachedData) {
+            const clienteCache = JSON.parse(cachedData)
+            Object.assign(formData, {
+                nombre: clienteCache.nombre,
+                apellido: clienteCache.apellido,
+                direccion: clienteCache.direccion,
+                telefono: clienteCache.telefono,
+                correo: clienteCache.correo
+            })
+            console.log('✅ Cliente cargado desde cache')
+        }
+
+        // Siempre hacer la petición para tener datos actualizados
         const response = await $fetch(`http://localhost:4000/client/${clienteId.value}`)
         
         if (response && response['Cliente solicitado']) {
@@ -140,6 +222,9 @@ const cargarCliente = async () => {
                 telefono: cliente.telefono,
                 correo: cliente.correo
             })
+            
+            // Guardar en cache
+            localStorage.setItem(`cliente_cache_${clienteId.value}`, JSON.stringify(cliente))
             
             console.log('✅ Cliente cargado correctamente:', formData)
         }
@@ -178,6 +263,7 @@ const agregarCliente = async () => {
         console.log('Respuesta del servidor:', response)
         mostrarToast('exito', 'Éxito', 'Cliente agregado correctamente')
         limpiarFormulario()
+        limpiarStorage()
         
     } catch (error) {
         console.error('Error al agregar cliente:', error)
@@ -213,6 +299,10 @@ const actualizarCliente = async () => {
 
         console.log('Respuesta del servidor:', response)
         mostrarToast('exito', 'Éxito', 'Cliente actualizado correctamente')
+        
+        // Limpiar cache y storage
+        localStorage.removeItem(`cliente_cache_${clienteId.value}`)
+        limpiarStorage()
         
         // Navegar de vuelta a la gestión de clientes después de actualizar
         setTimeout(() => {

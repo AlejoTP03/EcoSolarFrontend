@@ -65,6 +65,11 @@ const error = ref(null)
 const showModalConfirmacion = ref(false)
 const clienteAEliminar = ref(null)
 
+// Claves para localStorage
+const STORAGE_KEYS = {
+    CLIENTS_TABLE: 'clients_table_cache'
+}
+
 // Columnas de la tabla
 const columnas = ['Nombre', 'Apellidos', 'Dirección', 'Teléfono', 'Correo']
 
@@ -82,7 +87,8 @@ const clientesFormateados = computed(() => {
 
 // Función para obtener clientes desde el backend
 const fetchClientes = async () => {
-    pending.value = true
+    // Si ya hay cache cargado, no ocultar la tabla mientras refrescamos
+    pending.value = clientes.value.length === 0
     error.value = null
     
     try {
@@ -95,8 +101,16 @@ const fetchClientes = async () => {
         
         if (data.value && data.value['Todos los clientes']) {
             clientes.value = data.value['Todos los clientes']
+        } else if (data.value && Array.isArray(data.value)) {
+            // Soportar respuesta como arreglo directo
+            clientes.value = data.value
         } else {
             clientes.value = []
+        }
+
+        // Guardar tabla en cache
+        if (typeof window !== 'undefined') {
+            localStorage.setItem(STORAGE_KEYS.CLIENTS_TABLE, JSON.stringify(clientes.value))
         }
         
     } catch (err) {
@@ -138,6 +152,11 @@ const confirmarEliminacion = async () => {
             if (index !== -1) {
                 clientes.value.splice(index, 1)
             }
+
+            // Actualizar cache
+            if (typeof window !== 'undefined') {
+                localStorage.setItem(STORAGE_KEYS.CLIENTS_TABLE, JSON.stringify(clientes.value))
+            }
             
             // Cerrar modal y limpiar
             showModalConfirmacion.value = false
@@ -175,7 +194,29 @@ const eliminarClienteBackend = async (idClient) => {
 }
 
 // Cargar clientes al montar el componente
+onBeforeMount(() => {
+    // Hidratar desde cache lo antes posible
+    if (typeof window !== 'undefined') {
+        const cache = localStorage.getItem(STORAGE_KEYS.CLIENTS_TABLE)
+        if (cache) {
+            try { clientes.value = JSON.parse(cache) } catch { /* noop */ }
+        }
+    }
+})
+
 onMounted(() => {
+    // Cargar cache primero
+    if (typeof window !== 'undefined') {
+        const cache = localStorage.getItem(STORAGE_KEYS.CLIENTS_TABLE)
+        if (cache) {
+            try { clientes.value = JSON.parse(cache) } catch { /* noop */ }
+        }
+    }
+    fetchClientes()
+})
+
+// Si la página vuelve a activarse, refrescar
+onActivated?.(() => {
     fetchClientes()
 })
 </script>

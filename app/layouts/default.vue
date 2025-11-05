@@ -33,7 +33,7 @@
             <span class="font-medium" style="color: #0B2241;">Proyectos</span>
             </NuxtLink>
             
-            <NuxtLink to="/" class="flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors hover:bg-gray-300">
+            <NuxtLink to="/gestionTrabajador" class="flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors hover:bg-gray-300">
             <NuxtImg src="/trabajador.png" alt="Trabajadores" width="24" height="24" />
             <span class="font-medium" style="color: #0B2241;">Trabajadores</span>
             </NuxtLink>
