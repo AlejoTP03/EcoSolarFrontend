@@ -16,7 +16,7 @@
         </div>
 
         <!-- Estados de carga y error -->
-        <div v-if="pending" class="text-center py-8">
+        <div v-if="pending && trabajadores.length === 0" class="text-center py-8">
             <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
             <p class="mt-2 text-gray-600">Cargando trabajadores...</p>
         </div>
@@ -28,6 +28,17 @@
                 class="mt-2 bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition-colors"
             >
                 Reintentar
+            </button>
+        </div>
+
+        <!-- Mostrar cuando no hay datos -->
+        <div v-else-if="trabajadores.length === 0" class="text-center py-8">
+            <p class="text-gray-600 text-lg">No hay trabajadores para mostrar</p>
+            <button 
+                @click="fetchTrabajadores" 
+                class="mt-4 bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 transition-colors"
+            >
+                Cargar Trabajadores
             </button>
         </div>
 
@@ -62,15 +73,13 @@ import ModalConfirmacion from '~/components/ModalConfirmacion.vue'
 const trabajadores = ref([])
 const equipos = ref([]) // Lista de equipos disponibles
 const especialidadesEquipos = ref({}) // Cache para especialidades
-const pending = ref(false)
+const pending = ref(true) // Iniciar como true para mostrar loading
 const error = ref(null)
 const showModalConfirmacion = ref(false)
 const trabajadorAEliminar = ref(null)
 
-// Claves para localStorage
-const STORAGE_KEYS = {
-    WORKERS_TABLE: 'workers_table_cache'
-}
+// Clave para localStorage
+const STORAGE_KEY = 'workers_table_cache'
 
 // Columnas de la tabla
 const columnas = ['Nombre', 'Apellido', 'Salario', 'Equipo']
@@ -108,7 +117,6 @@ const fetchEquipos = async () => {
         if (response && response['Todos los equipos']) {
             equipos.value = response['Todos los equipos']
             // Crear un mapa de especialidades por ID de equipo
-            // El backend usa idEquipo, pero también verificamos idTeam por compatibilidad
             equipos.value.forEach(equipo => {
                 const idEquipo = equipo.idEquipo || equipo.idTeam
                 if (idEquipo && equipo.especialidad) {
@@ -133,85 +141,139 @@ const fetchEquipos = async () => {
 
 // Datos formateados para la tabla con especialidades
 const trabajadoresFormateados = computed(() => {
+    console.log('🔄 Formateando trabajadores:', trabajadores.value.length)
     return trabajadores.value.map(trabajador => {
         const teamId = trabajador.teamId || trabajador.idEquipo || trabajador.equipo
         let especialidad = 'Sin equipo'
         
         if (teamId) {
-        // Buscar en el cache de especialidades
-        especialidad = especialidadesEquipos.value[teamId] || 'Cargando...'
+            // Buscar en el cache de especialidades
+            especialidad = especialidadesEquipos.value[teamId] || 'Cargando...'
         }
         
         return {
-        Nombre: trabajador.nombre,
-        Apellido: trabajador.apellido,
-        Salario: trabajador.salario ? `$${trabajador.salario.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'N/A',
-        Equipo: especialidad,
-        idWorker: trabajador.idWorker || trabajador.id,
-        // Mantenemos el id del equipo para uso interno
-        idEquipo: teamId
+            Nombre: trabajador.nombre || 'N/A',
+            Apellido: trabajador.apellido || 'N/A',
+            Salario: trabajador.salario ? `$${trabajador.salario.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'N/A',
+            Equipo: especialidad,
+            idWorker: trabajador.idWorker || trabajador.id,
+            // Mantenemos el id del equipo para uso interno
+            idEquipo: teamId
         }
     })
 })
 
+// Función para guardar en localStorage
+const saveToLocalStorage = (data) => {
+    if (process.client) {
+        try {
+            console.log('💾 Guardando trabajadores en localStorage:', data.length, 'trabajadores')
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+            
+            // Verificar que se guardó
+            const verify = localStorage.getItem(STORAGE_KEY)
+            const verifiedData = verify ? JSON.parse(verify) : []
+            console.log('✅ Verificación - Trabajadores guardados:', verifiedData.length, 'trabajadores')
+        } catch (e) {
+            console.error('❌ Error guardando trabajadores en localStorage:', e)
+        }
+    }
+}
+
+// Función para cargar desde localStorage
+const loadFromLocalStorage = () => {
+    if (process.client) {
+        try {
+            const stored = localStorage.getItem(STORAGE_KEY)
+            console.log('📥 Intentando cargar trabajadores desde localStorage...')
+            
+            if (stored) {
+                const parsedData = JSON.parse(stored)
+                console.log('✅ Trabajadores cargados desde cache:', parsedData.length, 'trabajadores')
+                return parsedData
+            } else {
+                console.log('📭 No hay datos de trabajadores en localStorage')
+            }
+        } catch (e) {
+            console.error('❌ Error leyendo trabajadores de localStorage:', e)
+        }
+    }
+    return null
+}
+
 // Función para obtener trabajadores desde el backend
 const fetchTrabajadores = async () => {
-  // Si ya hay cache cargado, no ocultar la tabla mientras refrescamos
-    pending.value = trabajadores.value.length === 0
+    console.log('🚀 Iniciando fetchTrabajadores...')
+    pending.value = true
     error.value = null
     
     try {
+        console.log('🌐 Haciendo petición a la API...')
+        
         // Cargar equipos primero
         await fetchEquipos()
         
-        const { data } = await useFetch('http://localhost:4000/worker', {
-        method: 'GET',
-        headers: {
-            'Content-Type': 'application/json'
-        }
+        // Usar $fetch en lugar de useFetch para mejor control
+        const data = await $fetch('http://localhost:4000/worker', {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json'
+            }
         })
         
-    if (data.value && data.value['Todos los trabajadores']) {
-        trabajadores.value = data.value['Todos los trabajadores']
-        } else if (data.value && Array.isArray(data.value)) {
-        trabajadores.value = data.value
+        console.log('📨 Respuesta completa de la API:', data)
+        
+        if (data && data['Todos los trabajadores']) {
+            trabajadores.value = data['Todos los trabajadores']
+            console.log('✅ Trabajadores asignados desde "Todos los trabajadores":', trabajadores.value.length)
+        } else if (data && Array.isArray(data)) {
+            trabajadores.value = data
+            console.log('✅ Trabajadores asignados (array directo):', trabajadores.value.length)
         } else {
-        trabajadores.value = []
+            trabajadores.value = []
+            console.warn('⚠️  No se encontraron trabajadores en la respuesta o formato inesperado:', data)
         }
 
-    // Guardar tabla en cache
-    if (typeof window !== 'undefined') {
-        localStorage.setItem(STORAGE_KEYS.WORKERS_TABLE, JSON.stringify(trabajadores.value))
-    }
+        // Guardar en cache solo si tenemos datos
+        if (trabajadores.value.length > 0) {
+            saveToLocalStorage(trabajadores.value)
+        }
         
         // Cargar especialidades de los equipos de los trabajadores que no estén en el cache
         const idsEquiposUnicos = [...new Set(
-        trabajadores.value
-            .map(t => t.teamId || t.idEquipo || t.equipo)
-            .filter(id => id && !especialidadesEquipos.value[id])
+            trabajadores.value
+                .map(t => t.teamId || t.idEquipo || t.equipo)
+                .filter(id => id && !especialidadesEquipos.value[id])
         )]
         
         // Cargar especialidades faltantes usando la ruta específica
         await Promise.all(
-        idsEquiposUnicos.map(idEquipo => obtenerEspecialidadEquipo(idEquipo))
+            idsEquiposUnicos.map(idEquipo => obtenerEspecialidadEquipo(idEquipo))
         )
         
     } catch (err) {
         error.value = err
-        console.error('Error fetching workers:', err)
+        console.error('❌ Error fetching workers:', err)
+        
+        // Intentar cargar del cache como respaldo
+        console.log('🔄 Intentando cargar desde cache por error...')
+        const cachedData = loadFromLocalStorage()
+        if (cachedData && cachedData.length > 0) {
+            trabajadores.value = cachedData
+            error.value = null // Limpiar error porque tenemos cache
+            console.log('✅ Recuperados desde cache después de error:', trabajadores.value.length)
+        } else {
+            console.log('📭 No hay cache disponible')
+        }
     } finally {
         pending.value = false
+        console.log('🏁 Fetch completado. Total trabajadores:', trabajadores.value.length)
     }
 }
 
 // Métodos para manejar eventos
-const agregarTrabajador = () => {
-    console.log('Agregar nuevo trabajador')
-}
-
 const editarTrabajador = (trabajador) => {
-    console.log('Editar trabajador:', trabajador)
-    // Navegar al formulario con el ID del trabajador
+    console.log('✏️ Editar trabajador:', trabajador)
     navigateTo(`/formularioTrabajador?edit=${trabajador.idWorker}`)
 }
 
@@ -233,7 +295,11 @@ const confirmarEliminacion = async () => {
             
             if (index !== -1) {
                 trabajadores.value.splice(index, 1)
+                console.log('🗑️ Trabajador eliminado localmente')
             }
+
+            // Actualizar cache después de eliminar
+            saveToLocalStorage(trabajadores.value)
             
             // Cerrar modal y limpiar
             showModalConfirmacion.value = false
@@ -257,30 +323,34 @@ const eliminarTrabajadorBackend = async (idWorker) => {
         await $fetch(`http://localhost:4000/worker/${idWorker}`, {
             method: 'DELETE'
         })
-        // Recargar la lista después de eliminar
-        fetchTrabajadores()
-        
-        console.log('Trabajador eliminado correctamente')
+        console.log('✅ Trabajador eliminado correctamente del backend')
         
     } catch (err) {
-        console.error('Error eliminando trabajador:', err)
+        console.error('❌ Error eliminando trabajador:', err)
         throw new Error('No se pudo eliminar el trabajador')
     }
 }
 
-// Cargar trabajadores al montar el componente (usar cache primero y luego refrescar)
+// Cargar trabajadores al montar el componente
 onMounted(() => {
-    if (typeof window !== 'undefined') {
-        const cache = localStorage.getItem(STORAGE_KEYS.WORKERS_TABLE)
-        if (cache) {
-            try { trabajadores.value = JSON.parse(cache) } catch { /* noop */ }
-        }
+    console.log('🎬 Componente montado - Iniciando carga...')
+    
+    // Primero cargar desde cache inmediatamente
+    const cachedData = loadFromLocalStorage()
+    if (cachedData && cachedData.length > 0) {
+        trabajadores.value = cachedData
+        pending.value = false // Ya tenemos datos, no mostrar loading
+        console.log('✅ Cache cargado al montar:', trabajadores.value.length, 'trabajadores')
+    } else {
+        console.log('📭 No hay datos en cache al montar')
     }
+    
+    // Siempre intentar cargar datos frescos
     fetchTrabajadores()
 })
 
-// Cuando se vuelve a esta página (si está cacheada por Nuxt), refrescar
-onActivated?.(() => {
-    fetchTrabajadores()
-})
+// Watcher para debug
+watch(trabajadores, (newVal) => {
+    console.log('👀 Trabajadores actualizados:', newVal.length)
+}, { deep: false })
 </script>

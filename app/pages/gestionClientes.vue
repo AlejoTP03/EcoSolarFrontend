@@ -16,7 +16,7 @@
         </div>
 
         <!-- Estados de carga y error -->
-        <div v-if="pending" class="text-center py-8">
+        <div v-if="pending && clientes.length === 0" class="text-center py-8">
             <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
             <p class="mt-2 text-gray-600">Cargando clientes...</p>
         </div>
@@ -28,6 +28,17 @@
                 class="mt-2 bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition-colors"
             >
                 Reintentar
+            </button>
+        </div>
+
+        <!-- Mostrar cuando no hay datos -->
+        <div v-else-if="clientes.length === 0" class="text-center py-8">
+            <p class="text-gray-600 text-lg">No hay clientes para mostrar</p>
+            <button 
+                @click="fetchClientes" 
+                class="mt-4 bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 transition-colors"
+            >
+                Cargar Clientes
             </button>
         </div>
 
@@ -60,80 +71,129 @@ import ModalConfirmacion from '~/components/ModalConfirmacion.vue'
 
 // Estados reactivos
 const clientes = ref([])
-const pending = ref(false)
+const pending = ref(true) // Iniciar como true para mostrar loading
 const error = ref(null)
 const showModalConfirmacion = ref(false)
 const clienteAEliminar = ref(null)
 
-// Claves para localStorage
-const STORAGE_KEYS = {
-    CLIENTS_TABLE: 'clients_table_cache'
-}
+// Clave para localStorage
+const STORAGE_KEY = 'clients_table_cache'
 
 // Columnas de la tabla
 const columnas = ['Nombre', 'Apellidos', 'Dirección', 'Teléfono', 'Correo']
 
 // Datos formateados para la tabla
 const clientesFormateados = computed(() => {
+    console.log('🔄 Formateando clientes:', clientes.value.length)
     return clientes.value.map(cliente => ({
-        Nombre: cliente.nombre,
-        Apellidos: cliente.apellido,
-        Dirección: cliente.direccion,
-        Teléfono: cliente.telefono,
-        Correo: cliente.correo,
+        Nombre: cliente.nombre || 'N/A',
+        Apellidos: cliente.apellido || 'N/A',
+        Dirección: cliente.direccion || 'N/A',
+        Teléfono: cliente.telefono || 'N/A',
+        Correo: cliente.correo || 'N/A',
         idClient: cliente.idClient
     }))
 })
 
+// Función para guardar en localStorage
+const saveToLocalStorage = (data) => {
+    if (process.client) {
+        try {
+            console.log('💾 Guardando en localStorage:', data.length, 'clientes')
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+            
+            // Verificar que se guardó
+            const verify = localStorage.getItem(STORAGE_KEY)
+            const verifiedData = verify ? JSON.parse(verify) : []
+            console.log('✅ Verificación - Datos guardados:', verifiedData.length, 'clientes')
+        } catch (e) {
+            console.error('❌ Error guardando en localStorage:', e)
+        }
+    }
+}
+
+// Función para cargar desde localStorage
+const loadFromLocalStorage = () => {
+    if (process.client) {
+        try {
+            const stored = localStorage.getItem(STORAGE_KEY)
+            console.log('📥 Intentando cargar desde localStorage...')
+            
+            if (stored) {
+                const parsedData = JSON.parse(stored)
+                console.log('✅ Datos cargados desde cache:', parsedData.length, 'clientes')
+                return parsedData
+            } else {
+                console.log('📭 No hay datos en localStorage')
+            }
+        } catch (e) {
+            console.error('❌ Error leyendo localStorage:', e)
+        }
+    }
+    return null
+}
+
 // Función para obtener clientes desde el backend
 const fetchClientes = async () => {
-    // Si ya hay cache cargado, no ocultar la tabla mientras refrescamos
-    pending.value = clientes.value.length === 0
+    console.log('🚀 Iniciando fetchClientes...')
+    pending.value = true
     error.value = null
     
     try {
-        const { data } = await useFetch('http://localhost:4000/client', {
+        console.log('🌐 Haciendo petición a la API...')
+        
+        // Usar $fetch en lugar de useFetch para mejor control
+        const data = await $fetch('http://localhost:4000/client', {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json'
             }
         })
         
-        if (data.value && data.value['Todos los clientes']) {
-            clientes.value = data.value['Todos los clientes']
-        } else if (data.value && Array.isArray(data.value)) {
-            // Soportar respuesta como arreglo directo
-            clientes.value = data.value
+        console.log('📨 Respuesta completa de la API:', data)
+        
+        if (data && data['Todos los clientes']) {
+            clientes.value = data['Todos los clientes']
+            console.log('✅ Clientes asignados desde "Todos los clientes":', clientes.value.length)
+        } else if (data && Array.isArray(data)) {
+            clientes.value = data
+            console.log('✅ Clientes asignados (array directo):', clientes.value.length)
         } else {
             clientes.value = []
+            console.warn('⚠️  No se encontraron clientes en la respuesta o formato inesperado:', data)
         }
 
-        // Guardar tabla en cache
-        if (typeof window !== 'undefined') {
-            localStorage.setItem(STORAGE_KEYS.CLIENTS_TABLE, JSON.stringify(clientes.value))
+        // Guardar en cache solo si tenemos datos
+        if (clientes.value.length > 0) {
+            saveToLocalStorage(clientes.value)
         }
         
     } catch (err) {
         error.value = err
-        console.error('Error fetching clients:', err)
+        console.error('❌ Error fetching clients:', err)
+        
+        // Intentar cargar del cache como respaldo
+        console.log('🔄 Intentando cargar desde cache por error...')
+        const cachedData = loadFromLocalStorage()
+        if (cachedData && cachedData.length > 0) {
+            clientes.value = cachedData
+            error.value = null // Limpiar error porque tenemos cache
+            console.log('✅ Recuperados desde cache después de error:', clientes.value.length)
+        } else {
+            console.log('📭 No hay cache disponible')
+        }
     } finally {
         pending.value = false
+        console.log('🏁 Fetch completado. Total clientes:', clientes.value.length)
     }
 }
 
 // Métodos para manejar eventos
-const agregarCliente = () => {
-    console.log('Agregar nuevo cliente')
-    // Lógica para agregar cliente
-}
-
 const editarCliente = (cliente) => {
-    console.log('Editar cliente:', cliente)
-    // Navegar al formulario con el ID del cliente
+    console.log('✏️ Editar cliente:', cliente)
     navigateTo(`/formularioCliente?edit=${cliente.idClient}`)
 }
 
-// Eliminación con modal personalizado
 const iniciarEliminacion = (cliente) => {
     clienteAEliminar.value = cliente
     showModalConfirmacion.value = true
@@ -144,21 +204,18 @@ const confirmarEliminacion = async () => {
         try {
             await eliminarClienteBackend(clienteAEliminar.value.idClient)
             
-            // Actualización local inmediata (sin recargar del backend)
             const index = clientes.value.findIndex(cliente => 
                 cliente.idClient === clienteAEliminar.value.idClient
             )
             
             if (index !== -1) {
                 clientes.value.splice(index, 1)
+                console.log('🗑️ Cliente eliminado localmente')
             }
 
-            // Actualizar cache
-            if (typeof window !== 'undefined') {
-                localStorage.setItem(STORAGE_KEYS.CLIENTS_TABLE, JSON.stringify(clientes.value))
-            }
+            // Actualizar cache después de eliminar
+            saveToLocalStorage(clientes.value)
             
-            // Cerrar modal y limpiar
             showModalConfirmacion.value = false
             clienteAEliminar.value = null
             
@@ -180,43 +237,34 @@ const eliminarClienteBackend = async (idClient) => {
         await $fetch(`http://localhost:4000/client/${idClient}`, {
             method: 'DELETE'
         })
-        // Recargar la lista después de eliminar
-        fetchClientes()
-        
-        // Opcional: Mostrar notificación de éxito
-        // Puedes agregar aquí un toast o notificación
-        console.log('Cliente eliminado correctamente')
+        console.log('✅ Cliente eliminado correctamente del backend')
         
     } catch (err) {
-        console.error('Error eliminando cliente:', err)
+        console.error('❌ Error eliminando cliente:', err)
         throw new Error('No se pudo eliminar el cliente')
     }
 }
 
 // Cargar clientes al montar el componente
-onBeforeMount(() => {
-    // Hidratar desde cache lo antes posible
-    if (typeof window !== 'undefined') {
-        const cache = localStorage.getItem(STORAGE_KEYS.CLIENTS_TABLE)
-        if (cache) {
-            try { clientes.value = JSON.parse(cache) } catch { /* noop */ }
-        }
-    }
-})
-
 onMounted(() => {
-    // Cargar cache primero
-    if (typeof window !== 'undefined') {
-        const cache = localStorage.getItem(STORAGE_KEYS.CLIENTS_TABLE)
-        if (cache) {
-            try { clientes.value = JSON.parse(cache) } catch { /* noop */ }
-        }
+    console.log('🎬 Componente montado - Iniciando carga...')
+    
+    // Primero cargar desde cache inmediatamente
+    const cachedData = loadFromLocalStorage()
+    if (cachedData && cachedData.length > 0) {
+        clientes.value = cachedData
+        pending.value = false // Ya tenemos datos, no mostrar loading
+        console.log('✅ Cache cargado al montar:', clientes.value.length, 'clientes')
+    } else {
+        console.log('📭 No hay datos en cache al montar')
     }
+    
+    // Siempre intentar cargar datos frescos
     fetchClientes()
 })
 
-// Si la página vuelve a activarse, refrescar
-onActivated?.(() => {
-    fetchClientes()
-})
+// Watcher para debug
+watch(clientes, (newVal) => {
+    console.log('👀 Clientes actualizados:', newVal.length)
+}, { deep: false })
 </script>
