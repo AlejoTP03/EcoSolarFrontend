@@ -72,48 +72,48 @@ const props = defineProps({
 
 const emit = defineEmits(['cerrar'])
 
-// Computed para las clases dinámicas
+// Computed para las clases dinámicas - COLORES MUCHO MÁS FUERTES
 const clasesNotificacion = computed(() => {
     const clases = {
-        exito: 'bg-green-50 border-green-400',
-        advertencia: 'bg-yellow-50 border-yellow-400',
-        error: 'bg-red-50 border-red-400'
+        exito: 'bg-green-200 border-green-700', // Verde muy fuerte
+        advertencia: 'bg-yellow-200 border-yellow-700', // Amarillo muy fuerte
+        error: 'bg-red-200 border-red-700' // Rojo muy fuerte
     }
     return clases[props.tipo] || clases.exito
 })
 
 const clasesTitulo = computed(() => {
     const clases = {
-        exito: 'text-green-800',
-        advertencia: 'text-yellow-800',
-        error: 'text-red-800'
+        exito: 'text-green-900 font-bold', // Texto verde muy oscuro y negrita
+        advertencia: 'text-yellow-900 font-bold', // Texto amarillo muy oscuro y negrita
+        error: 'text-red-900 font-bold' // Texto rojo muy oscuro y negrita
     }
     return clases[props.tipo] || clases.exito
 })
 
 const clasesMensaje = computed(() => {
     const clases = {
-        exito: 'text-green-700',
-        advertencia: 'text-yellow-700',
-        error: 'text-red-700'
+        exito: 'text-green-800 font-medium', // Texto verde oscuro
+        advertencia: 'text-yellow-800 font-medium', // Texto amarillo oscuro
+        error: 'text-red-800 font-medium' // Texto rojo oscuro
     }
     return clases[props.tipo] || clases.exito
 })
 
 const clasesIcono = computed(() => {
     const clases = {
-        exito: 'text-green-400',
-        advertencia: 'text-yellow-400',
-        error: 'text-red-400'
+        exito: 'text-green-700', // Icono verde muy fuerte
+        advertencia: 'text-yellow-700', // Icono amarillo muy fuerte
+        error: 'text-red-700' // Icono rojo muy fuerte
     }
     return clases[props.tipo] || clases.exito
 })
 
 const clasesBotonCerrar = computed(() => {
     const clases = {
-        exito: 'text-green-400 hover:text-green-500 focus:ring-green-500',
-        advertencia: 'text-yellow-400 hover:text-yellow-500 focus:ring-yellow-500',
-        error: 'text-red-400 hover:text-red-500 focus:ring-red-500'
+        exito: 'text-green-700 hover:text-green-800 focus:ring-green-700', // Botón verde muy fuerte
+        advertencia: 'text-yellow-700 hover:text-yellow-800 focus:ring-yellow-700', // Botón amarillo muy fuerte
+        error: 'text-red-700 hover:text-red-800 focus:ring-red-700' // Botón rojo muy fuerte
     }
     return clases[props.tipo] || clases.exito
 })
