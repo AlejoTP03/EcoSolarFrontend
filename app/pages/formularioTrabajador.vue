@@ -85,35 +85,28 @@
 </template>
 
 <script setup>
-// Importar componentes
 import InputGenerico from '~/components/InputGenerico.vue'
 import ButtonGenerico from '~/components/ButtonGenerico.vue'
 import NotificacionEsquina from '~/components/NotificacionEsquina.vue'
 
-// Obtener parámetros de la URL
 const route = useRoute()
-const esEdicion = computed(() => !!route.query.edit)
-const trabajadorId = computed(() => route.query.edit)
+const esEdicion = computed(() => !!route.query.edit || !!route.query.update)
+const trabajadorId = computed(() => route.query.edit || route.query.update)
 
-// Reactive data
 const formData = reactive({
     nombre: '',
     apellido: '',
     salario: '', 
-    teamId: '' // Cambiado de 'equipo' a 'teamId'
+    teamId: ''
 })
 
-// Estado para equipos disponibles
 const equipos = ref([])
 const equiposPending = ref(false)
-
-// Estado para la notificación
 const mostrarNotificacion = ref(false)
 const tipoNotificacion = ref('exito')
 const tituloNotificacion = ref('')
 const mensajeNotificacion = ref('')
 
-// Método para mostrar notificaciones
 const mostrarToast = (tipo, titulo, mensaje, duracion = 5000) => {
     tipoNotificacion.value = tipo
     tituloNotificacion.value = titulo
@@ -121,21 +114,18 @@ const mostrarToast = (tipo, titulo, mensaje, duracion = 5000) => {
     mostrarNotificacion.value = true
 }
 
-// Normaliza el teamId a número si es numérico, o deja string (UUID) si no
 const normalizeTeamId = (value) => {
     if (typeof value === 'number') return value
     if (typeof value === 'string' && /^\d+$/.test(value)) return Number(value)
     return value
 }
 
-// Claves para localStorage del formulario
 const STORAGE_KEYS = {
     FORM_DATA: 'worker_form_data',
     IS_EDITING: 'worker_is_editing',
     WORKER_ID: 'worker_id'
 }
 
-// Guardar datos en localStorage
 const guardarEnStorage = () => {
     if (typeof window !== 'undefined') {
         localStorage.setItem(STORAGE_KEYS.FORM_DATA, JSON.stringify(formData))
@@ -146,7 +136,6 @@ const guardarEnStorage = () => {
     }
 }
 
-// Cargar datos desde localStorage
 const cargarDesdeStorage = () => {
     if (typeof window !== 'undefined') {
         const savedFormData = localStorage.getItem(STORAGE_KEYS.FORM_DATA)
@@ -158,17 +147,14 @@ const cargarDesdeStorage = () => {
             Object.assign(formData, parsedData)
         }
         
-        // Verificar si estamos en el mismo contexto de edición
         if (savedIsEditing && savedWorkerId) {
             const isEditing = JSON.parse(savedIsEditing)
             if (isEditing && savedWorkerId === trabajadorId.value) {
-                console.log('✅ Cargando datos guardados del formulario de trabajador')
             }
         }
     }
 }
 
-// Limpiar localStorage del formulario
 const limpiarStorage = () => {
     if (typeof window !== 'undefined') {
         localStorage.removeItem(STORAGE_KEYS.FORM_DATA)
@@ -177,17 +163,14 @@ const limpiarStorage = () => {
     }
 }
 
-// Validaciones de campos
 const isEmptyString = (value) => value == null || (typeof value === 'string' && value.trim() === '')
 const isInvalidSalario = (value) => value == null || (typeof value === 'string' && value.trim() === '') || isNaN(Number(value))
 
-// Función para cargar equipos disponibles
 const fetchEquipos = async () => {
     equiposPending.value = true
     try {
         const response = await $fetch('http://localhost:4000/team')
         
-        // Ajustar según la estructura de tu API
         if (response && response['Todos los equipos']) {
             equipos.value = response['Todos los equipos']
         } else if (Array.isArray(response)) {
@@ -195,54 +178,99 @@ const fetchEquipos = async () => {
         } else {
             equipos.value = []
         }
-        
-        console.log('Equipos cargados:', equipos.value)
     } catch (error) {
-        console.error('Error al cargar equipos:', error)
         mostrarToast('error', 'Error', 'No se pudieron cargar los equipos')
     } finally {
         equiposPending.value = false
     }
 }
 
-// Cargar datos del trabajador si estamos en modo edición
+const cargarTrabajador = async () => {
+    try {
+        if (route.query.update) {
+            const cacheKey = `trabajador_cache_${trabajadorId.value}`
+            const cachedData = localStorage.getItem(cacheKey)
+            
+            if (cachedData) {
+                const trabajadorCache = JSON.parse(cachedData)
+                Object.assign(formData, {
+                    nombre: trabajadorCache.nombre,
+                    apellido: trabajadorCache.apellido,
+                    salario: trabajadorCache.salario,
+                    teamId: trabajadorCache.teamId
+                })
+                localStorage.removeItem(cacheKey)
+                return
+            }
+        }
+
+        const response = await $fetch('http://localhost:4000/worker')
+        
+        let todosLosTrabajadores = []
+        
+        if (response && response['Todos los trabajadores']) {
+            todosLosTrabajadores = response['Todos los trabajadores']
+        } else if (Array.isArray(response)) {
+            todosLosTrabajadores = response
+        } else if (response && response['Trabajadores encontrados']) {
+            todosLosTrabajadores = response['Trabajadores encontrados']
+        }
+        
+        const trabajadorEncontrado = todosLosTrabajadores.find(t => {
+            const idTrabajador = t.idTrabajador || t.idWorker || t.id
+            return idTrabajador === trabajadorId.value
+        })
+        
+        if (trabajadorEncontrado) {
+            Object.assign(formData, {
+                nombre: trabajadorEncontrado.nombre ?? '',
+                apellido: trabajadorEncontrado.apellido ?? '',
+                salario: trabajadorEncontrado.salario?.toString?.() ?? '',
+                teamId: trabajadorEncontrado.teamId ?? trabajadorEncontrado.equipo ?? ''
+            })
+            
+            if (process.client) {
+                const cacheData = {
+                    nombre: trabajadorEncontrado.nombre,
+                    apellido: trabajadorEncontrado.apellido,
+                    salario: trabajadorEncontrado.salario?.toString?.(),
+                    teamId: trabajadorEncontrado.teamId ?? trabajadorEncontrado.equipo
+                }
+                localStorage.setItem(`trabajador_cache_${trabajadorId.value}`, JSON.stringify(cacheData))
+            }
+        } else {
+            mostrarToast('error', 'Error', 'No se encontraron datos del trabajador')
+        }
+        
+    } catch (error) {
+        mostrarToast('error', 'Error', 'No se pudo cargar la información del trabajador')
+    }
+}
+
 onMounted(async () => {
     await fetchEquipos()
     
     if (esEdicion.value && trabajadorId.value) {
         await cargarTrabajador()
     } else {
-        // Si no es edición, cargar datos guardados del formulario
         cargarDesdeStorage()
     }
 })
 
-// Función para cargar datos del trabajador
-const cargarTrabajador = async () => {
-    try {
-        const response = await $fetch(`http://localhost:4000/worker/${trabajadorId.value}`)
+watch(formData, () => {
+    guardarEnStorage()
+}, { deep: true })
 
-        // Ajustar según respuesta de la API
-        const trabajador = response?.['Trabajador solicitado'] || response
-        if (trabajador) {
-            Object.assign(formData, {
-                nombre: trabajador.nombre ?? '',
-                apellido: trabajador.apellido ?? '',
-                salario: trabajador.salario?.toString?.() ?? '',
-                teamId: trabajador.teamId ?? trabajador.equipo ?? '' // Manejar ambos nombres
-            })
-            console.log('✅ Trabajador cargado correctamente:', formData)
-        }
-    } catch (error) {
-        console.error('Error al cargar trabajador:', error)
-        mostrarToast('error', 'Error', 'No se pudo cargar la información del trabajador')
-    }
-}
+watch(esEdicion, () => {
+    guardarEnStorage()
+})
 
-// Método para agregar trabajador
+watch(trabajadorId, () => {
+    guardarEnStorage()
+})
+
 const agregarTrabajador = async () => {
     try {
-        // Validar campos requeridos (permitir salario 0, normalizar espacios)
         if (isEmptyString(formData.nombre) || isEmptyString(formData.apellido) || isInvalidSalario(formData.salario) || isEmptyString(formData.teamId)) {
             mostrarToast('advertencia', 'Campos requeridos', 'Nombre, Apellido, Salario y Equipo son obligatorios')
             return
@@ -255,25 +283,20 @@ const agregarTrabajador = async () => {
             teamId: normalizeTeamId(formData.teamId)
         }
 
-        console.log('Enviando datos:', body)
-
         const response = await $fetch('http://localhost:4000/worker', {
             method: 'POST',
             body,
             headers: { 'Content-Type': 'application/json' }
         })
 
-        console.log('Respuesta del servidor:', response)
         mostrarToast('exito', 'Éxito', 'Trabajador agregado correctamente')
         limpiarFormulario()
         limpiarStorage()
     } catch (error) {
-        console.error('Error al agregar trabajador:', error)
         mostrarToast('error', 'Error', 'Error al agregar trabajador. Por favor, intente nuevamente.')
     }
 }
 
-// Método para actualizar trabajador
 const actualizarTrabajador = async () => {
     try {
         if (isEmptyString(formData.nombre) || isEmptyString(formData.apellido) || isInvalidSalario(formData.salario) || isEmptyString(formData.teamId)) {
@@ -288,23 +311,23 @@ const actualizarTrabajador = async () => {
             teamId: normalizeTeamId(formData.teamId)
         }
 
-        console.log('Actualizando con datos:', body)
-
         const response = await $fetch(`http://localhost:4000/worker/${trabajadorId.value}`, {
             method: 'PUT',
             body,
             headers: { 'Content-Type': 'application/json' }
         })
 
-        console.log('Respuesta del servidor:', response)
         mostrarToast('exito', 'Éxito', 'Trabajador actualizado correctamente')
+        
+        if (process.client) {
+            localStorage.removeItem(`trabajador_cache_${trabajadorId.value}`)
+        }
         limpiarStorage()
 
         setTimeout(() => {
             navigateTo('/gestionTrabajador')
         }, 1500)
     } catch (error) {
-        console.error('Error al actualizar trabajador:', error)
         mostrarToast('error', 'Error', 'Error al actualizar trabajador. Por favor, intente nuevamente.')
     }
 }
