@@ -57,7 +57,7 @@
                 </div>
 
                 <div class="flex gap-4 justify-center mt-6 w-full">
-                    <NuxtLink to="/gestionClientes" class="flex-1" @click="limpiarStorage">
+                    <NuxtLink to="/clients/gestionClientes" class="flex-1" @click="limpiarStorage">
                         <ButtonGenerico
                             texto="Cancelar"
                         />

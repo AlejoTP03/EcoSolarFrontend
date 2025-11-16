@@ -6,7 +6,7 @@
                 
                 <!-- Botón Agregar -->
                 <div class="ml-auto">
-                    <NuxtLink to="/formularioTrabajador">
+                    <NuxtLink to="/workers/formularioTrabajador">
                         <BottonAgregar 
                             :button-text="'Agregar Trabajador'"
                         />
@@ -239,7 +239,7 @@
     }
 
     const editarTrabajador = (trabajador) => {
-        navigateTo(`/formularioTrabajador?edit=${trabajador.idTrabajador}`)
+        navigateTo(`/workers/formularioTrabajador?edit=${trabajador.idTrabajador}`)
     }
 
     const actualizarTrabajador = (trabajador) => {

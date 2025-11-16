@@ -6,7 +6,7 @@
                 
                 <!-- Botón Agregar -->
                 <div class="ml-auto">
-                    <NuxtLink to="/formularioCliente">
+                    <NuxtLink to="/clients/formularioCliente">
                         <BottonAgregar 
                             :button-text="'Agregar Cliente'"
                         />
@@ -191,7 +191,7 @@ const fetchClientes = async () => {
 // Métodos para manejar eventos
 const editarCliente = (cliente) => {
     console.log('✏️ Editar cliente:', cliente)
-    navigateTo(`/formularioCliente?edit=${cliente.idClient}`)
+    navigateTo(`/clients/formularioCliente?edit=${cliente.idClient}`)
 }
 
 const iniciarEliminacion = (cliente) => {
