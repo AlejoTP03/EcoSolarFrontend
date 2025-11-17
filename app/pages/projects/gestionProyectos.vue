@@ -61,14 +61,6 @@
             @cancel="cancelarEliminacion"
         />
 
-        <!-- Modal de equipos -->
-        <ModalEquipos 
-            :show="showModalEquipos"
-            :equipos="equiposModal"
-            :titulo="`Equipos del proyecto: ${proyectoSeleccionado?.nombre || ''}`"
-            @cerrar="showModalEquipos = false"
-        />
-
         <!-- Notificación de éxito -->
         <NotificacionEsquina 
             :mostrar="mostrarNotificacion"
@@ -87,26 +79,22 @@ import TablaGenerica from '~/components/TablaGenerica.vue'
 import BottonAgregar from '~/components/BottonAgregar.vue'
 import ModalConfirmacion from '~/components/ModalConfirmacion.vue'
 import NotificacionEsquina from '~/components/NotificacionEsquina.vue'
-import ModalEquipos from '~/components/ModalEquipos.vue'
 
 // Estados reactivos
 const proyectos = ref([])
 const clientes = ref([])
-const equipos = ref([])
+const proyectosConEquipos = ref({}) // Para almacenar equipos por proyecto
 const pending = ref(true)
 const error = ref(null)
 const showModalConfirmacion = ref(false)
-const showModalEquipos = ref(false)
 const proyectoAEliminar = ref(null)
-const proyectoSeleccionado = ref(null)
-const equiposModal = ref([])
 const mostrarNotificacion = ref(false)
 const mensajeNotificacion = ref('')
 
 // Clave para localStorage
 const STORAGE_KEY = 'projects_table_cache'
 
-// Columnas de la tabla
+// Columnas de la tabla - AGREGAMOS EQUIPOS
 const columnas = ['Nombre', 'Costo', 'Fechas', 'Estado', 'Cliente', 'Equipos', 'Descripción']
 
 // Función para mostrar notificación
@@ -121,7 +109,7 @@ const obtenerNombreCliente = (clientId) => {
     return cliente ? `${cliente.nombre} ${cliente.apellido}` : 'Cliente no encontrado'
 }
 
-// Obtener equipos del proyecto
+// Obtener equipos del proyecto (versión simple)
 const obtenerEquiposProyecto = async (proyectoId) => {
     try {
         const response = await $fetch(`http://localhost:4000/project/${proyectoId}/teams`)
@@ -135,85 +123,63 @@ const obtenerEquiposProyecto = async (proyectoId) => {
     }
 }
 
-// Formatear estado con colores
-const formatearEstado = (estado) => {
-    const colores = {
-        'Pendiente': 'bg-orange-100 text-orange-800 border-orange-200',
-        'Activo': 'bg-blue-100 text-blue-800 border-blue-200',
-        'Finalizado': 'bg-green-100 text-green-800 border-green-200'
+// Cargar equipos para todos los proyectos
+const cargarEquiposProyectos = async () => {
+    const promesasEquipos = proyectos.value.map(async (proyecto) => {
+        const equipos = await obtenerEquiposProyecto(proyecto.idProyect)
+        proyectosConEquipos.value[proyecto.idProyect] = equipos
+    })
+    
+    await Promise.all(promesasEquipos)
+}
+
+// Formatear la lista de equipos para mostrar
+const formatearEquipos = (proyectoId) => {
+    const equipos = proyectosConEquipos.value[proyectoId] || []
+    
+    if (equipos.length === 0) {
+        return 'Sin equipos'
     }
     
-    const colorClase = colores[estado] || 'bg-gray-100 text-gray-800 border-gray-200'
-    
-    return {
-        texto: estado,
-        clase: `px-3 py-1 rounded-full text-sm font-medium border ${colorClase}`
+    // Mostrar solo los primeros 2 equipos y contar el resto
+    if (equipos.length <= 2) {
+        return equipos.map(e => e.especialidad || e.nombre).join(', ')
+    } else {
+        const primerosEquipos = equipos.slice(0, 2).map(e => e.especialidad || e.nombre)
+        return `${primerosEquipos.join(', ')} +${equipos.length - 2} más`
     }
 }
 
-// Datos formateados para la tabla
+// Datos formateados para la tabla - AGREGAMOS EQUIPOS
 const proyectosFormateados = computed(() => {
-    console.log('🔄 Formateando proyectos:', proyectos.value.length)
     return proyectos.value.map(proyecto => {
-        const estadoFormateado = formatearEstado(proyecto.estado)
         const fechaInicio = new Date(proyecto.fechaInicio).toLocaleDateString('es-ES')
         const fechaFin = proyecto.fechaFin ? new Date(proyecto.fechaFin).toLocaleDateString('es-ES') : 'Sin definir'
+        
+        // Descripción truncada si es muy larga
+        const descripcionCorta = proyecto.descripcion && proyecto.descripcion.length > 80 
+            ? proyecto.descripcion.substring(0, 80) + '...' 
+            : proyecto.descripcion || 'Sin descripción'
         
         return {
             Nombre: proyecto.nombre || 'N/A',
             Costo: proyecto.costo ? `$${proyecto.costo.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'N/A',
             Fechas: `${fechaInicio} - ${fechaFin}`,
-            Estado: estadoFormateado,
+            Estado: proyecto.estado || 'N/A',
             Cliente: obtenerNombreCliente(proyecto.clientId),
-            Equipos: {
-                cantidad: 0, // Se cargará después
-                proyectoId: proyecto.idProyect
-            },
-            Descripción: {
-                texto: proyecto.descripcion || 'Sin descripción',
-                expandido: false
-            },
+            Equipos: formatearEquipos(proyecto.idProyect),
+            Descripción: descripcionCorta,
+            // Campos ocultos para funcionalidad
+            _equiposCompletos: proyectosConEquipos.value[proyecto.idProyect] || [],
             idProyect: proyecto.idProyect
         }
     })
 })
 
-// Función para cargar equipos de todos los proyectos
-const cargarEquiposProyectos = async () => {
-    for (const proyecto of proyectosFormateados.value) {
-        try {
-            const equiposProyecto = await obtenerEquiposProyecto(proyecto.idProyect)
-            proyecto.Equipos.cantidad = equiposProyecto.length
-            // Guardar los equipos para el modal
-            proyecto.Equipos.lista = equiposProyecto
-        } catch (error) {
-            console.error(`Error cargando equipos para proyecto ${proyecto.idProyect}:`, error)
-            proyecto.Equipos.cantidad = 0
-            proyecto.Equipos.lista = []
-        }
-    }
-}
-
-// Función para mostrar modal de equipos
-const mostrarEquipos = async (proyecto) => {
-    proyectoSeleccionado.value = proyectos.value.find(p => p.idProyect === proyecto.idProyect)
-    
-    // Si ya tenemos los equipos cargados, usarlos
-    if (proyecto.Equipos.lista) {
-        equiposModal.value = proyecto.Equipos.lista
-    } else {
-        // Si no, cargarlos
-        equiposModal.value = await obtenerEquiposProyecto(proyecto.idProyect)
-    }
-    
-    showModalEquipos.value = true
-}
-
 // Función para guardar en localStorage
 const saveToLocalStorage = (data) => {
     if (process.client) {
         try {
-            console.log('💾 Guardando en localStorage:', data.length, 'proyectos')
             localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
         } catch (e) {
             console.error('❌ Error guardando en localStorage:', e)
@@ -227,9 +193,7 @@ const loadFromLocalStorage = () => {
         try {
             const stored = localStorage.getItem(STORAGE_KEY)
             if (stored) {
-                const parsedData = JSON.parse(stored)
-                console.log('✅ Datos cargados desde cache:', parsedData.length, 'proyectos')
-                return parsedData
+                return JSON.parse(stored)
             }
         } catch (e) {
             console.error('❌ Error leyendo localStorage:', e)
@@ -252,47 +216,34 @@ const fetchClientes = async () => {
     }
 }
 
-// Función para obtener proyectos desde el backend
+// Función para obtener proyectos desde el backend - AGREGAMOS CARGA DE EQUIPOS
 const fetchProyectos = async () => {
-    console.log('🚀 Iniciando fetchProyectos...')
     pending.value = true
     error.value = null
     
     try {
-        console.log('🌐 Haciendo petición a la API...')
-        
         // Cargar clientes primero
         await fetchClientes()
         
         // Cargar proyectos
-        const data = await $fetch('http://localhost:4000/proyect', {
+        const data = await $fetch('http://localhost:4000/project', {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json'
             }
         })
         
-        console.log('📨 Respuesta completa de la API:', data)
-        
         if (data && data['Todos los proyectos']) {
             proyectos.value = data['Todos los proyectos']
-            console.log('✅ Proyectos asignados desde "Todos los proyectos":', proyectos.value.length)
-            
-            // Cargar equipos para cada proyecto
-            await cargarEquiposProyectos()
         } else if (data && Array.isArray(data)) {
             proyectos.value = data
-            console.log('✅ Proyectos asignados (array directo):', proyectos.value.length)
-            
-            // Cargar equipos para cada proyecto
-            await cargarEquiposProyectos()
         } else {
             proyectos.value = []
-            console.warn('⚠️  No se encontraron proyectos en la respuesta o formato inesperado:', data)
         }
 
-        // Guardar en cache solo si tenemos datos
+        // Cargar equipos para cada proyecto
         if (proyectos.value.length > 0) {
+            await cargarEquiposProyectos()
             saveToLocalStorage(proyectos.value)
         }
         
@@ -301,24 +252,18 @@ const fetchProyectos = async () => {
         console.error('❌ Error fetching projects:', err)
         
         // Intentar cargar del cache como respaldo
-        console.log('🔄 Intentando cargar desde cache por error...')
         const cachedData = loadFromLocalStorage()
         if (cachedData && cachedData.length > 0) {
             proyectos.value = cachedData
             error.value = null
-            console.log('✅ Recuperados desde cache después de error:', proyectos.value.length)
-        } else {
-            console.log('📭 No hay cache disponible')
         }
     } finally {
         pending.value = false
-        console.log('🏁 Fetch completado. Total proyectos:', proyectos.value.length)
     }
 }
 
 // Métodos para manejar eventos
 const editarProyecto = (proyecto) => {
-    console.log('✏️ Editar proyecto:', proyecto)
     navigateTo(`/proyectos/formularioProyecto?edit=${proyecto.idProyect}`)
 }
 
@@ -332,10 +277,6 @@ const confirmarEliminacion = async () => {
         try {
             const idAEliminar = proyectoAEliminar.value.idProyect
             
-            if (!idAEliminar) {
-                throw new Error('ID del proyecto no encontrado')
-            }
-            
             await eliminarProyectoBackend(idAEliminar)
             
             const index = proyectos.value.findIndex(proyecto => 
@@ -346,11 +287,12 @@ const confirmarEliminacion = async () => {
                 const nombreProyecto = proyectoAEliminar.value.Nombre
                 proyectos.value.splice(index, 1)
                 
-                // Mostrar notificación de éxito
+                // También eliminar de proyectosConEquipos
+                delete proyectosConEquipos.value[idAEliminar]
+                
                 mostrarNotificacionExito(`Proyecto "${nombreProyecto}" eliminado correctamente`)
             }
 
-            // Actualizar cache después de eliminar
             saveToLocalStorage(proyectos.value)
             
             showModalConfirmacion.value = false
@@ -374,8 +316,6 @@ const eliminarProyectoBackend = async (idProyect) => {
         await $fetch(`http://localhost:4000/project/${idProyect}`, {
             method: 'DELETE'
         })
-        console.log('✅ Proyecto eliminado correctamente del backend')
-        
     } catch (err) {
         console.error('❌ Error eliminando proyecto:', err)
         throw new Error('No se pudo eliminar el proyecto')
@@ -384,24 +324,12 @@ const eliminarProyectoBackend = async (idProyect) => {
 
 // Cargar proyectos al montar el componente
 onMounted(() => {
-    console.log('🎬 Componente montado - Iniciando carga...')
-    
-    // Primero cargar desde cache inmediatamente
     const cachedData = loadFromLocalStorage()
     if (cachedData && cachedData.length > 0) {
         proyectos.value = cachedData
         pending.value = false
-        console.log('✅ Cache cargado al montar:', proyectos.value.length, 'proyectos')
-    } else {
-        console.log('📭 No hay datos en cache al montar')
     }
     
-    // Siempre intentar cargar datos frescos
     fetchProyectos()
 })
-
-// Watcher para debug
-watch(proyectos, (newVal) => {
-    console.log('👀 Proyectos actualizados:', newVal.length)
-}, { deep: false })
 </script>
