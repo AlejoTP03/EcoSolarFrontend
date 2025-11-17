@@ -60,6 +60,16 @@
             @confirm="confirmarEliminacion"
             @cancel="cancelarEliminacion"
         />
+
+        <!-- Notificación de éxito -->
+        <NotificacionEsquina 
+            :mostrar="mostrarNotificacion"
+            tipo="exito"
+            titulo="¡Éxito!"
+            :mensaje="mensajeNotificacion"
+            :duracion="3000"
+            @cerrar="mostrarNotificacion = false"
+        />
     </div>
 </template>
 
@@ -68,6 +78,7 @@
 import TablaGenerica from '~/components/TablaGenerica.vue'
 import BottonAgregar from '~/components/BottonAgregar.vue'
 import ModalConfirmacion from '~/components/ModalConfirmacion.vue'
+import NotificacionEsquina from '~/components/NotificacionEsquina.vue'
 
 // Estados reactivos
 const clientes = ref([])
@@ -75,12 +86,20 @@ const pending = ref(true) // Iniciar como true para mostrar loading
 const error = ref(null)
 const showModalConfirmacion = ref(false)
 const clienteAEliminar = ref(null)
+const mostrarNotificacion = ref(false)
+const mensajeNotificacion = ref('')
 
 // Clave para localStorage
 const STORAGE_KEY = 'clients_table_cache'
 
 // Columnas de la tabla
 const columnas = ['Nombre', 'Apellidos', 'Dirección', 'Teléfono', 'Correo']
+
+// Función para mostrar notificación
+const mostrarNotificacionExito = (mensaje) => {
+    mensajeNotificacion.value = mensaje
+    mostrarNotificacion.value = true
+}
 
 // Datos formateados para la tabla
 const clientesFormateados = computed(() => {
@@ -202,15 +221,24 @@ const iniciarEliminacion = (cliente) => {
 const confirmarEliminacion = async () => {
     if (clienteAEliminar.value) {
         try {
-            await eliminarClienteBackend(clienteAEliminar.value.idClient)
+            const idAEliminar = clienteAEliminar.value.idClient
+            
+            if (!idAEliminar) {
+                throw new Error('ID del cliente no encontrado')
+            }
+            
+            await eliminarClienteBackend(idAEliminar)
             
             const index = clientes.value.findIndex(cliente => 
-                cliente.idClient === clienteAEliminar.value.idClient
+                cliente.idClient === idAEliminar
             )
             
             if (index !== -1) {
+                const nombreCompleto = `${clienteAEliminar.value.Nombre} ${clienteAEliminar.value.Apellidos}`
                 clientes.value.splice(index, 1)
-                console.log('🗑️ Cliente eliminado localmente')
+                
+                // Mostrar notificación de éxito
+                mostrarNotificacionExito(`Cliente "${nombreCompleto}" eliminado correctamente`)
             }
 
             // Actualizar cache después de eliminar

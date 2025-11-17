@@ -4,11 +4,14 @@
         <aside class="fixed left-0 top-0 w-64 h-full bg-white border-r border-gray-300 flex flex-col">
         <!-- Logo -->
         <div class="w-full">
-            <NuxtImg 
+            <NuxtLink to="/">
+                <NuxtImg 
                 src="/EcoSolar.jpg" 
                 alt="EcoSolar Logo" 
                 class="w-full h-auto"
-            />
+                />
+            </NuxtLink>
+            
         </div>
         
         <!-- Navigation Menu -->
@@ -28,7 +31,7 @@
             <span class="font-medium" style="color: #0B2241;">Equipos</span>
             </NuxtLink>
             
-            <NuxtLink to="/" class="flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors hover:bg-gray-300">
+            <NuxtLink to="/projects/gestionProyectos" class="flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors hover:bg-gray-300">
             <NuxtImg src="/proyecto.png" alt="Proyectos" width="24" height="24" />
             <span class="font-medium" style="color: #0B2241;">Proyectos</span>
             </NuxtLink>

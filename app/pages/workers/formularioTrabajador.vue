@@ -14,6 +14,7 @@
                             <InputGenerico
                                 v-model="formData.nombre"
                                 placeholder="Ingrese el nombre"
+                                @keypress="soloLetras"
                             />
                         </div>
 
@@ -22,6 +23,7 @@
                             <InputGenerico
                                 v-model="formData.apellido"
                                 placeholder="Ingrese el apellido"
+                                @keypress="soloLetras"
                             />
                         </div>
                     </div>
@@ -330,6 +332,19 @@ const actualizarTrabajador = async () => {
     } catch (error) {
         mostrarToast('error', 'Error', 'Error al actualizar trabajador. Por favor, intente nuevamente.')
     }
+}
+
+const soloLetras = (event) => {
+    const key = event.key
+    // Permitir letras, espacios, ñ, acentos y teclas de control
+    const letrasPermitidas = /^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]$/
+    const teclasControl = ['Backspace', 'Delete', 'Tab', 'Escape', 'Enter', 'ArrowLeft', 'ArrowRight', 'Home', 'End']
+    
+    if (!letrasPermitidas.test(key) && !teclasControl.includes(key)) {
+        event.preventDefault()
+        return false
+    }
+    return true
 }
 
 const limpiarFormulario = () => {
