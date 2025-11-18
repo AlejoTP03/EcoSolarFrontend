@@ -58,6 +58,7 @@
                                 <option value="Pendiente">Pendiente</option>
                                 <option value="Activo">Activo</option>
                                 <option value="Finalizado">Finalizado</option>
+                                <option value="Finalizado">Cancelado</option>
                             </select>
                         </div>
 
@@ -123,7 +124,7 @@
                 </div>
 
                 <div class="flex gap-4 justify-center mt-6 w-full">
-                    <NuxtLink to="/proyectos/gestionProyectos" class="flex-1" @click="limpiarStorage">
+                    <NuxtLink to="/projects/gestionProyectos" class="flex-1" @click="limpiarStorage">
                         <ButtonGenerico
                             texto="Cancelar"
                         />
@@ -160,6 +161,12 @@ const route = useRoute()
 const esEdicion = computed(() => !!route.query.edit)
 const proyectoId = computed(() => route.query.edit)
 
+console.log('🔍 [DEBUG] Parámetros de URL:', {
+    esEdicion: esEdicion.value,
+    proyectoId: proyectoId.value,
+    query: route.query
+})
+
 // Reactive data
 const formData = reactive({
     nombre: '',
@@ -171,6 +178,8 @@ const formData = reactive({
     clienteId: '',
     equiposSeleccionados: []
 })
+
+console.log('🔍 [DEBUG] FormData inicializado:', JSON.parse(JSON.stringify(formData)))
 
 // Estados para equipos, clientes y notificación
 const equipos = ref([])
@@ -189,8 +198,18 @@ const STORAGE_KEYS = {
     PROYECTO_ID: 'proyecto_id'
 }
 
+// URLs de las APIs - CORREGIDAS
+const API_ENDPOINTS = {
+    agregarProyecto: 'http://localhost:4000/proyect',
+    actualizarProyecto: (id) => `http://localhost:4000/proyect/${id}`,
+    obtenerProyecto: (id) => `http://localhost:4000/proyect/${id}`,
+    equipos: 'http://localhost:4000/team',
+    clientes: 'http://localhost:4000/client'
+}
+
 // Método para mostrar notificaciones
 const mostrarToast = (tipo, titulo, mensaje, duracion = 5000) => {
+    console.log(`🔍 [DEBUG] Mostrando toast: ${tipo} - ${titulo} - ${mensaje}`)
     tipoNotificacion.value = tipo
     tituloNotificacion.value = titulo
     mensajeNotificacion.value = mensaje
@@ -200,10 +219,15 @@ const mostrarToast = (tipo, titulo, mensaje, duracion = 5000) => {
 // Guardar datos en localStorage
 const guardarEnStorage = () => {
     if (typeof window !== 'undefined') {
-        localStorage.setItem(STORAGE_KEYS.FORM_DATA, JSON.stringify(formData))
-        localStorage.setItem(STORAGE_KEYS.IS_EDITING, JSON.stringify(esEdicion.value))
-        if (proyectoId.value) {
-            localStorage.setItem(STORAGE_KEYS.PROYECTO_ID, proyectoId.value)
+        try {
+            localStorage.setItem(STORAGE_KEYS.FORM_DATA, JSON.stringify(formData))
+            localStorage.setItem(STORAGE_KEYS.IS_EDITING, JSON.stringify(esEdicion.value))
+            if (proyectoId.value) {
+                localStorage.setItem(STORAGE_KEYS.PROYECTO_ID, proyectoId.value)
+            }
+            console.log('🔍 [DEBUG] Datos guardados en localStorage:', JSON.parse(JSON.stringify(formData)))
+        } catch (error) {
+            console.error('🔍 [DEBUG] Error guardando en localStorage:', error)
         }
     }
 }
@@ -211,21 +235,32 @@ const guardarEnStorage = () => {
 // Cargar datos desde localStorage
 const cargarDesdeStorage = () => {
     if (typeof window !== 'undefined') {
-        const savedFormData = localStorage.getItem(STORAGE_KEYS.FORM_DATA)
-        const savedIsEditing = localStorage.getItem(STORAGE_KEYS.IS_EDITING)
-        const savedProyectoId = localStorage.getItem(STORAGE_KEYS.PROYECTO_ID)
-        
-        if (savedFormData) {
-            const parsedData = JSON.parse(savedFormData)
-            Object.assign(formData, parsedData)
-        }
-        
-        // Verificar si estamos en el mismo contexto de edición
-        if (savedIsEditing && savedProyectoId) {
-            const isEditing = JSON.parse(savedIsEditing)
-            if (isEditing && savedProyectoId === proyectoId.value) {
-                console.log('✅ Cargando datos guardados del formulario')
+        try {
+            const savedFormData = localStorage.getItem(STORAGE_KEYS.FORM_DATA)
+            const savedIsEditing = localStorage.getItem(STORAGE_KEYS.IS_EDITING)
+            const savedProyectoId = localStorage.getItem(STORAGE_KEYS.PROYECTO_ID)
+            
+            console.log('🔍 [DEBUG] Intentando cargar desde localStorage:', {
+                savedFormData: savedFormData ? 'Presente' : 'Ausente',
+                savedIsEditing,
+                savedProyectoId
+            })
+            
+            if (savedFormData) {
+                const parsedData = JSON.parse(savedFormData)
+                Object.assign(formData, parsedData)
+                console.log('🔍 [DEBUG] Datos cargados desde localStorage:', JSON.parse(JSON.stringify(formData)))
             }
+            
+            // Verificar si estamos en el mismo contexto de edición
+            if (savedIsEditing && savedProyectoId) {
+                const isEditing = JSON.parse(savedIsEditing)
+                if (isEditing && savedProyectoId === proyectoId.value) {
+                    console.log('✅ Cargando datos guardados del formulario')
+                }
+            }
+        } catch (error) {
+            console.error('🔍 [DEBUG] Error cargando desde localStorage:', error)
         }
     }
 }
@@ -236,54 +271,72 @@ const limpiarStorage = () => {
         localStorage.removeItem(STORAGE_KEYS.FORM_DATA)
         localStorage.removeItem(STORAGE_KEYS.IS_EDITING)
         localStorage.removeItem(STORAGE_KEYS.PROYECTO_ID)
+        console.log('🔍 [DEBUG] localStorage limpiado')
     }
 }
 
 // Función para obtener equipos desde el backend
 const fetchEquipos = async () => {
     equiposPending.value = true
+    console.log('🔍 [DEBUG] Iniciando fetchEquipos...')
     try {
-        const response = await $fetch('http://localhost:4000/team')
+        const response = await $fetch(API_ENDPOINTS.equipos)
+        console.log('🔍 [DEBUG] Respuesta completa de equipos:', response)
         
         if (response && response['Todos los equipos']) {
             equipos.value = response['Todos los equipos']
+            console.log('🔍 [DEBUG] Equipos cargados (con clave):', equipos.value)
         } else if (Array.isArray(response)) {
             equipos.value = response
+            console.log('🔍 [DEBUG] Equipos cargados (array directo):', equipos.value)
         } else {
             equipos.value = []
+            console.log('🔍 [DEBUG] No se encontraron equipos, array vacío')
         }
     } catch (error) {
+        console.error('🔍 [DEBUG] Error en fetchEquipos:', error)
         mostrarToast('error', 'Error', 'No se pudieron cargar los equipos')
     } finally {
         equiposPending.value = false
+        console.log('🔍 [DEBUG] fetchEquipos completado')
     }
 }
 
 // Función para obtener clientes desde el backend
 const fetchClientes = async () => {
     clientesPending.value = true
+    console.log('🔍 [DEBUG] Iniciando fetchClientes...')
     try {
-        const response = await $fetch('http://localhost:4000/client')
+        const response = await $fetch(API_ENDPOINTS.clientes)
+        console.log('🔍 [DEBUG] Respuesta completa de clientes:', response)
         
         if (response && response['Todos los clientes']) {
             clientes.value = response['Todos los clientes']
+            console.log('🔍 [DEBUG] Clientes cargados (con clave):', clientes.value)
         } else if (Array.isArray(response)) {
             clientes.value = response
+            console.log('🔍 [DEBUG] Clientes cargados (array directo):', clientes.value)
         } else {
             clientes.value = []
+            console.log('🔍 [DEBUG] No se encontraron clientes, array vacío')
         }
     } catch (error) {
+        console.error('🔍 [DEBUG] Error en fetchClientes:', error)
         mostrarToast('error', 'Error', 'No se pudieron cargar los clientes')
     } finally {
         clientesPending.value = false
+        console.log('🔍 [DEBUG] fetchClientes completado')
     }
 }
 
 // Cargar datos del proyecto si estamos en modo edición
 const cargarProyecto = async () => {
+    console.log('🔍 [DEBUG] Iniciando cargarProyecto...')
     try {
         // Primero verificar si hay datos en cache
         const cachedData = localStorage.getItem(`proyecto_cache_${proyectoId.value}`)
+        console.log('🔍 [DEBUG] Cache del proyecto:', cachedData ? 'Presente' : 'Ausente')
+        
         if (cachedData) {
             const proyectoCache = JSON.parse(cachedData)
             Object.assign(formData, {
@@ -293,17 +346,20 @@ const cargarProyecto = async () => {
                 fechaFin: proyectoCache.fechaFin,
                 descripcion: proyectoCache.descripcion,
                 estado: proyectoCache.estado,
-                clienteId: proyectoCache.clienteId || '',
-                equiposSeleccionados: proyectoCache.equiposSeleccionados || []
+                clienteId: proyectoCache.clientId || proyectoCache.clienteId || '', // Compatible con ambos
+                equiposSeleccionados: proyectoCache.teams || proyectoCache.equipos || [] // Compatible con ambos
             })
-            console.log('✅ Proyecto cargado desde cache')
+            console.log('✅ Proyecto cargado desde cache:', JSON.parse(JSON.stringify(formData)))
         }
 
         // Siempre hacer la petición para tener datos actualizados
-        const response = await $fetch(`http://localhost:4000/project/${proyectoId.value}`)
+        console.log('🔍 [DEBUG] Haciendo petición a API para proyecto:', proyectoId.value)
+        const response = await $fetch(API_ENDPOINTS.obtenerProyecto(proyectoId.value))
+        console.log('🔍 [DEBUG] Respuesta completa del proyecto:', response)
         
         if (response && response['Proyecto solicitado']) {
             const proyecto = response['Proyecto solicitado']
+            console.log('🔍 [DEBUG] Proyecto encontrado:', proyecto)
             
             // Formatear fechas para el input type="date"
             const formatDateForInput = (dateString) => {
@@ -313,6 +369,7 @@ const cargarProyecto = async () => {
             }
             
             // Actualizar el formulario con los datos del proyecto
+            // USAR LOS NOMBRES CORRECTOS DEL BACKEND
             Object.assign(formData, {
                 nombre: proyecto.nombre,
                 costo: proyecto.costo,
@@ -320,130 +377,224 @@ const cargarProyecto = async () => {
                 fechaFin: formatDateForInput(proyecto.fechaFin),
                 descripcion: proyecto.descripcion,
                 estado: proyecto.estado,
-                clienteId: proyecto.clienteId || '',
-                equiposSeleccionados: proyecto.equipos || []
+                clienteId: proyecto.clientId || '', // Usar clientId del backend
+                equiposSeleccionados: proyecto.teams || [] // Usar teams del backend
             })
             
             // Guardar en cache
             localStorage.setItem(`proyecto_cache_${proyectoId.value}`, JSON.stringify(proyecto))
             
-            console.log('✅ Proyecto cargado correctamente:', formData)
+            console.log('✅ Proyecto cargado correctamente:', JSON.parse(JSON.stringify(formData)))
+        } else {
+            console.error('🔍 [DEBUG] No se encontró el proyecto en la respuesta')
         }
     } catch (error) {
-        console.error('Error al cargar proyecto:', error)
+        console.error('🔍 [DEBUG] Error al cargar proyecto:', error)
         mostrarToast('error', 'Error', 'No se pudo cargar la información del proyecto')
     }
 }
 
 // Inicializar componente
 onMounted(async () => {
+    console.log('🔍 [DEBUG] Componente montado, iniciando carga de datos...')
     await Promise.all([fetchEquipos(), fetchClientes()])
+    console.log('🔍 [DEBUG] Datos básicos cargados:', {
+        equiposCount: equipos.value.length,
+        clientesCount: clientes.value.length
+    })
     
     if (esEdicion.value && proyectoId.value) {
+        console.log('🔍 [DEBUG] Modo edición detectado, cargando proyecto...')
         await cargarProyecto()
     } else {
+        console.log('🔍 [DEBUG] Modo creación, cargando datos guardados...')
         // Si no es edición, cargar datos guardados del formulario
         cargarDesdeStorage()
     }
+    
+    console.log('🔍 [DEBUG] Estado final del formulario:', JSON.parse(JSON.stringify(formData)))
 })
 
 // Watch para guardar automáticamente cuando cambien los datos del formulario
 watch(formData, () => {
+    console.log('🔍 [DEBUG] FormData cambiado, guardando en storage...')
     guardarEnStorage()
 }, { deep: true })
 
 // Watch para guardar cuando cambie el modo edición
 watch(esEdicion, () => {
+    console.log('🔍 [DEBUG] Modo edición cambiado:', esEdicion.value)
     guardarEnStorage()
 })
 
 // Watch para guardar cuando cambie el ID del proyecto
 watch(proyectoId, () => {
+    console.log('🔍 [DEBUG] ID del proyecto cambiado:', proyectoId.value)
     guardarEnStorage()
 })
 
-// Método para agregar proyecto
+// Método para agregar proyecto - ESTRUCTURA CORREGIDA SEGÚN BACKEND
 const agregarProyecto = async () => {
+    console.log('🔍 [DEBUG] Iniciando agregarProyecto...')
+    console.log('🔍 [DEBUG] Datos del formulario:', JSON.parse(JSON.stringify(formData)))
+    
     try {
-        console.log('Datos del proyecto:', formData)
-        
         // Validar campos requeridos
-        if (!formData.nombre || !formData.costo || !formData.fechaInicio || !formData.estado || !formData.clienteId) {
-            mostrarToast('advertencia', 'Campos requeridos', 'Por favor, complete todos los campos requeridos')
+        const camposRequeridos = {
+            nombre: formData.nombre,
+            costo: formData.costo,
+            fechaInicio: formData.fechaInicio,
+            estado: formData.estado,
+            clienteId: formData.clienteId
+        }
+        
+        console.log('🔍 [DEBUG] Validando campos requeridos:', camposRequeridos)
+        
+        const camposFaltantes = Object.entries(camposRequeridos)
+            .filter(([key, value]) => !value)
+            .map(([key]) => key)
+        
+        if (camposFaltantes.length > 0) {
+            console.error('🔍 [DEBUG] Campos requeridos faltantes:', camposFaltantes)
+            mostrarToast('advertencia', 'Campos requeridos', 'Por favor, complete todos los campos')
             return
         }
 
         // Validar que fecha fin no sea anterior a fecha inicio
         if (formData.fechaFin && new Date(formData.fechaFin) < new Date(formData.fechaInicio)) {
+            console.error('🔍 [DEBUG] Fecha fin anterior a fecha inicio')
             mostrarToast('advertencia', 'Fechas inválidas', 'La fecha fin no puede ser anterior a la fecha de inicio')
+            return
+        }
+
+        // PREPARAR DATOS CON LA ESTRUCTURA EXACTA QUE ESPERA EL BACKEND
+        const datosEnvio = {
+            nombre: formData.nombre.trim(),
+            costo: parseFloat(formData.costo),
+            fechaInicio: formData.fechaInicio,
+            fechaFin: formData.fechaFin || null,
+            descripcion: formData.descripcion?.trim() || '',
+            clientId: formData.clienteId, // IMPORTANTE: clientId (con t minúscula)
+            teams: Array.isArray(formData.equiposSeleccionados) ? formData.equiposSeleccionados : [], // IMPORTANTE: teams (no equipos)
+            estado: formData.estado
+        }
+
+        console.log('🔍 [DEBUG] Datos preparados para enviar (ESTRUCTURA BACKEND):', datosEnvio)
+        console.log('🔍 [DEBUG] Verificación estructura backend:', {
+            tiene_nombre: !!datosEnvio.nombre,
+            tiene_costo: !!datosEnvio.costo,
+            tiene_fechaInicio: !!datosEnvio.fechaInicio,
+            tiene_clientId: !!datosEnvio.clientId, // Verificar que se envíe correctamente
+            tiene_teams: Array.isArray(datosEnvio.teams),
+            tiene_estado: !!datosEnvio.estado
+        })
+
+        // Validar que el clientId sea un UUID válido
+        if (!datosEnvio.clientId || datosEnvio.clientId.length < 10) {
+            console.error('🔍 [DEBUG] clientId inválido:', datosEnvio.clientId)
+            mostrarToast('error', 'Error', 'ID de cliente inválido')
             return
         }
 
         // Enviar datos al servidor
-        const response = await $fetch('http://localhost:4000/project', {
+        console.log('🔍 [DEBUG] Enviando petición POST a', API_ENDPOINTS.agregarProyecto)
+        console.log('🔍 [DEBUG] Body enviado:', JSON.stringify(datosEnvio, null, 2))
+        
+        const response = await $fetch(API_ENDPOINTS.agregarProyecto, {
             method: 'POST',
-            body: {
-                nombre: formData.nombre,
-                costo: parseFloat(formData.costo),
-                fechaInicio: formData.fechaInicio,
-                fechaFin: formData.fechaFin || null,
-                descripcion: formData.descripcion,
-                estado: formData.estado,
-                clienteId: formData.clienteId,
-                equipos: formData.equiposSeleccionados
-            },
+            body: datosEnvio,
             headers: {
                 'Content-Type': 'application/json'
             }
         })
 
-        console.log('Respuesta del servidor:', response)
+        console.log('🔍 [DEBUG] Respuesta del servidor EXITOSA:', response)
         mostrarToast('exito', 'Éxito', 'Proyecto agregado correctamente')
         limpiarFormulario()
         limpiarStorage()
         
+        // Redirigir después de éxito
+        setTimeout(() => {
+            navigateTo('/projects/gestionProyectos')
+        }, 1500)
+        
     } catch (error) {
-        console.error('Error al agregar proyecto:', error)
-        mostrarToast('error', 'Error', 'Error al agregar proyecto. Por favor, intente nuevamente.')
+        console.error('🔍 [DEBUG] Error completo al agregar proyecto:', error)
+        console.error('🔍 [DEBUG] Mensaje de error:', error.message)
+        console.error('🔍 [DEBUG] Stack trace:', error.stack)
+        
+        let mensajeError = 'Error al agregar proyecto. Por favor, intente nuevamente.'
+        
+        if (error.data) {
+            console.error('🔍 [DEBUG] Datos del error (500):', error.data)
+            
+            // Intentar extraer mensaje específico del backend
+            if (typeof error.data === 'string') {
+                // Si es HTML, buscar el mensaje de error
+                const match = error.data.match(/<pre>(.*?)<\/pre>/)
+                if (match) {
+                    mensajeError = `Error del servidor: ${match[1]}`
+                }
+            } else if (error.data.message) {
+                mensajeError = error.data.message
+            } else if (error.data.error) {
+                mensajeError = error.data.error
+            }
+        }
+        
+        console.error('🔍 [DEBUG] Mensaje final de error:', mensajeError)
+        mostrarToast('error', 'Error', mensajeError)
     }
 }
 
-// Método para actualizar proyecto
+// Método para actualizar proyecto - ESTRUCTURA CORREGIDA SEGÚN BACKEND
 const actualizarProyecto = async () => {
+    console.log('🔍 [DEBUG] Iniciando actualizarProyecto...')
+    console.log('🔍 [DEBUG] Datos del formulario:', JSON.parse(JSON.stringify(formData)))
+    
     try {
-        console.log('Actualizando proyecto:', formData)
-        
         // Validar campos requeridos
         if (!formData.nombre || !formData.costo || !formData.fechaInicio || !formData.estado || !formData.clienteId) {
+            console.error('🔍 [DEBUG] Campos requeridos faltantes en actualización')
             mostrarToast('advertencia', 'Campos requeridos', 'Por favor, complete todos los campos requeridos')
             return
         }
 
         // Validar que fecha fin no sea anterior a fecha inicio
         if (formData.fechaFin && new Date(formData.fechaFin) < new Date(formData.fechaInicio)) {
+            console.error('🔍 [DEBUG] Fecha fin anterior a fecha inicio en actualización')
             mostrarToast('advertencia', 'Fechas inválidas', 'La fecha fin no puede ser anterior a la fecha de inicio')
             return
         }
 
+        // PREPARAR DATOS CON LA ESTRUCTURA EXACTA QUE ESPERA EL BACKEND
+        const datosActualizacion = {
+            nombre: formData.nombre.trim(),
+            costo: parseFloat(formData.costo),
+            fechaInicio: formData.fechaInicio,
+            fechaFin: formData.fechaFin || null,
+            descripcion: formData.descripcion?.trim() || '',
+            clientId: formData.clienteId, // IMPORTANTE: clientId (con t minúscula)
+            teams: Array.isArray(formData.equiposSeleccionados) ? formData.equiposSeleccionados : [], // IMPORTANTE: teams (no equipos)
+            estado: formData.estado
+        }
+
+        console.log('🔍 [DEBUG] Datos preparados para actualizar (ESTRUCTURA BACKEND):', datosActualizacion)
+
         // Actualizar datos en el servidor
-        const response = await $fetch(`http://localhost:4000/project/${proyectoId.value}`, {
+        const endpointActualizacion = API_ENDPOINTS.actualizarProyecto(proyectoId.value)
+        console.log(`🔍 [DEBUG] Enviando petición PUT a`, endpointActualizacion)
+        console.log('🔍 [DEBUG] Body enviado:', JSON.stringify(datosActualizacion, null, 2))
+        
+        const response = await $fetch(endpointActualizacion, {
             method: 'PUT',
-            body: {
-                nombre: formData.nombre,
-                costo: parseFloat(formData.costo),
-                fechaInicio: formData.fechaInicio,
-                fechaFin: formData.fechaFin || null,
-                descripcion: formData.descripcion,
-                estado: formData.estado,
-                clienteId: formData.clienteId,
-                equipos: formData.equiposSeleccionados
-            },
+            body: datosActualizacion,
             headers: {
                 'Content-Type': 'application/json'
             }
         })
 
-        console.log('Respuesta del servidor:', response)
+        console.log('🔍 [DEBUG] Respuesta del servidor:', response)
         mostrarToast('exito', 'Éxito', 'Proyecto actualizado correctamente')
         
         // Limpiar cache y storage
@@ -452,12 +603,22 @@ const actualizarProyecto = async () => {
         
         // Navegar de vuelta a la gestión de proyectos después de actualizar
         setTimeout(() => {
-            navigateTo('/proyectos/gestionProyectos')
+            navigateTo('/projects/gestionProyectos')
         }, 1500)
         
     } catch (error) {
-        console.error('Error al actualizar proyecto:', error)
-        mostrarToast('error', 'Error', 'Error al actualizar proyecto. Por favor, intente nuevamente.')
+        console.error('🔍 [DEBUG] Error completo al actualizar proyecto:', error)
+        console.error('🔍 [DEBUG] Mensaje de error:', error.message)
+        console.error('🔍 [DEBUG] Stack trace:', error.stack)
+        
+        let mensajeError = 'Error al actualizar proyecto. Por favor, intente nuevamente.'
+        
+        if (error.data) {
+            console.error('🔍 [DEBUG] Datos del error:', error.data)
+            mensajeError = error.data.message || mensajeError
+        }
+        
+        mostrarToast('error', 'Error', mensajeError)
     }
 }
 
@@ -475,6 +636,7 @@ const soloNumeros = (event) => {
 
 // Limpiar formulario
 const limpiarFormulario = () => {
+    console.log('🔍 [DEBUG] Limpiando formulario...')
     formData.nombre = ''
     formData.costo = ''
     formData.fechaInicio = ''
@@ -483,5 +645,6 @@ const limpiarFormulario = () => {
     formData.estado = 'Pendiente'
     formData.clienteId = ''
     formData.equiposSeleccionados = []
+    console.log('🔍 [DEBUG] Formulario limpiado:', JSON.parse(JSON.stringify(formData)))
 }
 </script>

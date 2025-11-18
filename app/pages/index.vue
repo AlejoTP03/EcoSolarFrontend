@@ -16,7 +16,7 @@
             <div v-else-if="error" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
                 <p>Error al cargar los datos: {{ error.message }}</p>
                 <button 
-                    @click="fetchTotalClientes" 
+                    @click="fetchAllData" 
                     class="mt-2 bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition-colors"
                 >
                     Reintentar
@@ -36,14 +36,14 @@
                 <CuadroPanel 
                     color-fondo="#8B9474"
                     texto="Total Proyectos" 
-                    :numero="12"
+                    :numero="totalProyectos"
                 />
                 
                 <!-- Total Equipos -->
                 <CuadroPanel 
                     color-fondo="#6CAE75"
-                    texto="Total Equipos" 
-                    :numero="8"
+                    texto="Total Trabajadores" 
+                    :numero="totalTrabajadores"
                 />
             </div>
         </main>
@@ -51,56 +51,66 @@
 </template>
 
 <script setup>
-// Estados reactivos
+// Estados reactivos para cada métrica
 const totalClientes = ref(0)
+const totalProyectos = ref(0)
+const totalTrabajadores = ref(0)
 const pending = ref(false)
 const error = ref(null)
 
-// Clave para localStorage
-const STORAGE_KEY = 'dashboard_total_clientes'
+// Claves para localStorage
+const STORAGE_KEYS = {
+  clientes: 'dashboard_total_clientes',
+  proyectos: 'dashboard_total_proyectos',
+  trabajadores: 'dashboard_total_trabajadores'
+}
+
+// URLs de las APIs
+const API_ENDPOINTS = {
+  clientes: 'http://localhost:4000/client/count/total',
+  proyectos: 'http://localhost:4000/proyect/count/total',
+  trabajadores: 'http://localhost:4000/worker/count/total'
+}
 
 // Función para guardar en localStorage
-const saveToLocalStorage = (data) => {
+const saveToLocalStorage = (key, data) => {
     if (typeof window !== 'undefined') {
         try {
             const storageData = {
                 value: data,
                 timestamp: new Date().getTime()
             }
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(storageData))
-            console.log('Datos guardados en localStorage:', data)
+            localStorage.setItem(key, JSON.stringify(storageData))
+            console.log(`Datos guardados en localStorage (${key}):`, data)
         } catch (e) {
-            console.error('Error guardando en localStorage:', e)
+            console.error(`Error guardando en localStorage (${key}):`, e)
         }
     }
 }
 
 // Función para cargar desde localStorage
-const loadFromLocalStorage = () => {
+const loadFromLocalStorage = (key) => {
     if (typeof window !== 'undefined') {
         try {
-            const stored = localStorage.getItem(STORAGE_KEY)
-            console.log('Datos recuperados de localStorage:', stored)
+            const stored = localStorage.getItem(key)
+            console.log(`Datos recuperados de localStorage (${key}):`, stored)
             
             if (stored) {
                 const parsedData = JSON.parse(stored)
                 return parsedData.value
             }
         } catch (e) {
-            console.error('Error leyendo localStorage:', e)
+            console.error(`Error leyendo localStorage (${key}):`, e)
         }
     }
     return null
 }
 
-// Función para obtener el total de clientes desde la API
-const fetchTotalClientes = async () => {
-    pending.value = true
-    error.value = null
-    
+// Función para obtener datos de una API específica
+const fetchData = async (endpoint, storageKey, refValue) => {
     try {
-        console.log('Haciendo petición a la API...')
-        const response = await fetch('http://localhost:4000/client/count/total', {
+        console.log(`Haciendo petición a la API: ${endpoint}`)
+        const response = await fetch(endpoint, {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json'
@@ -108,33 +118,69 @@ const fetchTotalClientes = async () => {
         })
         
         if (!response.ok) {
-            throw new Error(`Error HTTP: ${response.status}`)
+            throw new Error(`Error HTTP: ${response.status} para ${endpoint}`)
         }
         
         const data = await response.json()
-        console.log('Respuesta de la API:', data)
+        console.log(`Respuesta de la API (${endpoint}):`, data)
         
-        // Asignar el total de clientes desde la respuesta de la API
-        if (data && data.totalClientes !== undefined) {
-            totalClientes.value = data.totalClientes
-            saveToLocalStorage(totalClientes.value)
-            console.log('Total clientes actualizado:', totalClientes.value)
-        } else {
-            totalClientes.value = 0
-            saveToLocalStorage(0)
+        // Asignar el valor desde la respuesta de la API
+        // Asumiendo que todas las APIs devuelven un objeto con una propiedad que contiene el total
+        let value = 0
+        
+        // Manejar diferentes estructuras de respuesta
+        if (data && typeof data === 'object') {
+            // Buscar cualquier propiedad que contenga "total" en su nombre
+            const totalKey = Object.keys(data).find(key => 
+                key.toLowerCase().includes('total')
+            )
+            value = totalKey ? data[totalKey] : 0
+        } else if (typeof data === 'number') {
+            value = data
+        }
+        
+        refValue.value = value
+        saveToLocalStorage(storageKey, value)
+        console.log(`${storageKey} actualizado:`, value)
+        
+        return { success: true }
+    } catch (err) {
+        console.error(`Error fetching data from ${endpoint}:`, err)
+        return { success: false, error: err }
+    }
+}
+
+// Función para obtener todos los datos
+const fetchAllData = async () => {
+    pending.value = true
+    error.value = null
+    
+    try {
+        // Hacer todas las peticiones en paralelo
+        const results = await Promise.allSettled([
+            fetchData(API_ENDPOINTS.clientes, STORAGE_KEYS.clientes, totalClientes),
+            fetchData(API_ENDPOINTS.proyectos, STORAGE_KEYS.proyectos, totalProyectos),
+            fetchData(API_ENDPOINTS.trabajadores, STORAGE_KEYS.trabajadores, totalTrabajadores)
+        ])
+        
+        // Verificar si hubo errores
+        const errors = results
+            .filter(result => result.status === 'rejected' || 
+                            (result.status === 'fulfilled' && !result.value.success))
+            .map(result => result.reason || result.value.error)
+        
+        if (errors.length > 0) {
+            console.warn('Algunas peticiones fallaron:', errors)
+            
+            // Si todas las peticiones fallaron, establecer un error general
+            if (errors.length === results.length) {
+                throw new Error('No se pudieron cargar los datos de ninguna fuente')
+            }
         }
         
     } catch (err) {
         error.value = err
-        console.error('Error fetching total clients:', err)
-        
-        // En caso de error, intentar cargar datos del localStorage
-        const storedValue = loadFromLocalStorage()
-        if (storedValue !== null) {
-            totalClientes.value = storedValue
-            console.log('Usando datos de localStorage:', storedValue)
-            error.value = null // Limpiar error si tenemos datos guardados
-        }
+        console.error('Error general fetching data:', err)
     } finally {
         pending.value = false
     }
@@ -145,20 +191,22 @@ onMounted(() => {
     console.log('Componente montado, cargando datos...')
     
     // Primero intentar cargar desde localStorage
-    const storedValue = loadFromLocalStorage()
-    if (storedValue !== null) {
-        totalClientes.value = storedValue
-        console.log('Datos cargados desde localStorage:', storedValue)
-    } else {
-        console.log('No hay datos en localStorage')
-    }
+    const storedClientes = loadFromLocalStorage(STORAGE_KEYS.clientes)
+    const storedProyectos = loadFromLocalStorage(STORAGE_KEYS.proyectos)
+    const storedTrabajadores = loadFromLocalStorage(STORAGE_KEYS.trabajadores)
     
-    // Luego hacer la petición a la API para actualizar
-    fetchTotalClientes()
+    if (storedClientes !== null) totalClientes.value = storedClientes
+    if (storedProyectos !== null) totalProyectos.value = storedProyectos
+    if (storedTrabajadores !== null) totalTrabajadores.value = storedTrabajadores
+    
+    console.log('Datos cargados desde localStorage:', {
+        clientes: totalClientes.value,
+        proyectos: totalProyectos.value,
+        trabajadores: totalTrabajadores.value
+    })
+    
+    // Luego hacer las peticiones a las APIs para actualizar
+    fetchAllData()
 })
 
-// También puedes agregar un watcher para debuggear
-watch(totalClientes, (newVal) => {
-    console.log('totalClientes cambió a:', newVal)
-})
 </script>

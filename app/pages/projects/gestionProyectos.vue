@@ -6,7 +6,7 @@
                 
                 <!-- Botón Agregar -->
                 <div class="ml-auto">
-                    <NuxtLink to="/proyectos/formularioProyecto">
+                    <NuxtLink to="/projects/formularioProyecto">
                         <BottonAgregar 
                             :button-text="'Agregar Proyecto'"
                         />
@@ -94,7 +94,7 @@ const mensajeNotificacion = ref('')
 // Clave para localStorage
 const STORAGE_KEY = 'projects_table_cache'
 
-// Columnas de la tabla - AGREGAMOS EQUIPOS
+// Columnas de la tabla
 const columnas = ['Nombre', 'Costo', 'Fechas', 'Estado', 'Cliente', 'Equipos', 'Descripción']
 
 // Función para mostrar notificación
@@ -109,48 +109,71 @@ const obtenerNombreCliente = (clientId) => {
     return cliente ? `${cliente.nombre} ${cliente.apellido}` : 'Cliente no encontrado'
 }
 
-// Obtener equipos del proyecto (versión simple)
+// Obtener equipos del proyecto
 const obtenerEquiposProyecto = async (proyectoId) => {
     try {
-        const response = await $fetch(`http://localhost:4000/project/${proyectoId}/teams`)
+        console.log(`🔍 [GET] Obteniendo equipos para proyecto: ${proyectoId}`)
+        
+        const response = await $fetch(`http://localhost:4000/proyect/${proyectoId}/teams`)
+        console.log(`✅ Respuesta equipos proyecto ${proyectoId}:`, response)
+        
+        // MANEJAR LA ESTRUCTURA ESPECÍFICA DE LA RESPUESTA
         if (response && response['Equipos del proyecto']) {
+            // La API devuelve: { "Equipos del proyecto": ["Electricidad", "Pintura", "Demolición"] }
             return response['Equipos del proyecto']
+        } else if (Array.isArray(response)) {
+            // Si la respuesta es directamente un array
+            return response
         }
+        
         return []
     } catch (error) {
-        console.error('Error obteniendo equipos:', error)
+        console.error(`❌ Error obteniendo equipos para proyecto ${proyectoId}:`, error)
+        
+        // Si el endpoint no existe, retornar array vacío
+        if (error.status === 404) {
+            console.warn(`⚠️ Endpoint /proyect/${proyectoId}/teams no encontrado, retornando array vacío`)
+            return []
+        }
+        
         return []
     }
 }
 
 // Cargar equipos para todos los proyectos
 const cargarEquiposProyectos = async () => {
+    console.log('🔄 Iniciando carga de equipos para proyectos...')
+    
     const promesasEquipos = proyectos.value.map(async (proyecto) => {
-        const equipos = await obtenerEquiposProyecto(proyecto.idProyect)
-        proyectosConEquipos.value[proyecto.idProyect] = equipos
+        try {
+            const equipos = await obtenerEquiposProyecto(proyecto.idProyect)
+            proyectosConEquipos.value[proyecto.idProyect] = equipos
+            console.log(`✅ Equipos cargados para proyecto ${proyecto.idProyect}:`, equipos)
+        } catch (error) {
+            console.error(`❌ Error cargando equipos para proyecto ${proyecto.idProyect}:`, error)
+            proyectosConEquipos.value[proyecto.idProyect] = []
+        }
     })
     
     await Promise.all(promesasEquipos)
+    console.log('✅ Todos los equipos cargados:', proyectosConEquipos.value)
 }
 
-// Formatear la lista de equipos para mostrar
+// Formatear la lista de equipos para mostrar - MOSTRAR TODOS SIEMPRE
 const formatearEquipos = (proyectoId) => {
     const equipos = proyectosConEquipos.value[proyectoId] || []
     
+    console.log(`🔍 Formateando equipos para proyecto ${proyectoId}:`, equipos)
+    
     if (equipos.length === 0) {
-        return 'Sin equipos'
+        return 'Sin equipos asignados'
     }
     
-    // Mostrar solo los primeros 2 equipos y contar el resto
-    if (equipos.length <= 2) {
-        return equipos.map(e => e.especialidad || e.nombre).join(', ')
-    } else {
-        const primerosEquipos = equipos.slice(0, 2).map(e => e.especialidad || e.nombre)
-        return `${primerosEquipos.join(', ')} +${equipos.length - 2} más`
-    }
+    // OPCIÓN 5: SIMPLEMENTE MOSTRAR TODOS LOS EQUIPOS
+    return equipos.join(', ')
 }
 
-// Datos formateados para la tabla - AGREGAMOS EQUIPOS
+// Datos formateados para la tabla
 const proyectosFormateados = computed(() => {
     return proyectos.value.map(proyecto => {
         const fechaInicio = new Date(proyecto.fechaInicio).toLocaleDateString('es-ES')
@@ -161,13 +184,17 @@ const proyectosFormateados = computed(() => {
             ? proyecto.descripcion.substring(0, 80) + '...' 
             : proyecto.descripcion || 'Sin descripción'
         
+        const equiposFormateados = formatearEquipos(proyecto.idProyect)
+        
+        console.log(`📊 Proyecto ${proyecto.idProyect} - Equipos formateados:`, equiposFormateados)
+        
         return {
             Nombre: proyecto.nombre || 'N/A',
             Costo: proyecto.costo ? `$${proyecto.costo.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'N/A',
             Fechas: `${fechaInicio} - ${fechaFin}`,
             Estado: proyecto.estado || 'N/A',
             Cliente: obtenerNombreCliente(proyecto.clientId),
-            Equipos: formatearEquipos(proyecto.idProyect),
+            Equipos: equiposFormateados,
             Descripción: descripcionCorta,
             // Campos ocultos para funcionalidad
             _equiposCompletos: proyectosConEquipos.value[proyecto.idProyect] || [],
@@ -216,22 +243,27 @@ const fetchClientes = async () => {
     }
 }
 
-// Función para obtener proyectos desde el backend - AGREGAMOS CARGA DE EQUIPOS
+// Función para obtener proyectos desde el backend
 const fetchProyectos = async () => {
     pending.value = true
     error.value = null
     
     try {
+        console.log('🚀 Iniciando carga de proyectos...')
+        
         // Cargar clientes primero
         await fetchClientes()
+        console.log('✅ Clientes cargados:', clientes.value.length)
         
         // Cargar proyectos
-        const data = await $fetch('http://localhost:4000/project', {
+        const data = await $fetch('http://localhost:4000/proyect', {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json'
             }
         })
+        
+        console.log('📨 Respuesta proyectos:', data)
         
         if (data && data['Todos los proyectos']) {
             proyectos.value = data['Todos los proyectos']
@@ -241,10 +273,14 @@ const fetchProyectos = async () => {
             proyectos.value = []
         }
 
+        console.log('✅ Proyectos cargados:', proyectos.value.length)
+
         // Cargar equipos para cada proyecto
         if (proyectos.value.length > 0) {
+            console.log('🔄 Cargando equipos para proyectos...')
             await cargarEquiposProyectos()
             saveToLocalStorage(proyectos.value)
+            console.log('💾 Datos guardados en localStorage')
         }
         
     } catch (err) {
@@ -256,15 +292,18 @@ const fetchProyectos = async () => {
         if (cachedData && cachedData.length > 0) {
             proyectos.value = cachedData
             error.value = null
+            console.log('✅ Datos cargados desde cache')
         }
     } finally {
         pending.value = false
+        console.log('🏁 Carga de proyectos completada')
     }
 }
 
 // Métodos para manejar eventos
 const editarProyecto = (proyecto) => {
-    navigateTo(`/proyectos/formularioProyecto?edit=${proyecto.idProyect}`)
+    console.log('✏️ Editando proyecto:', proyecto)
+    navigateTo(`/projects/formularioProyecto?edit=${proyecto.idProyect}`)
 }
 
 const iniciarEliminacion = (proyecto) => {
@@ -311,23 +350,39 @@ const cancelarEliminacion = () => {
 }
 
 // Función para eliminar en el backend
-const eliminarProyectoBackend = async (idProyect) => {
+const eliminarProyectoBackend = async (proyectoId) => {
     try {
-        await $fetch(`http://localhost:4000/project/${idProyect}`, {
-            method: 'DELETE'
+        console.log(`🗑️ [DELETE] Eliminando proyecto: ${proyectoId}`)
+        
+        const response = await $fetch(`http://localhost:4000/proyect/${proyectoId}`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json'
+            }
         })
-    } catch (err) {
-        console.error('❌ Error eliminando proyecto:', err)
+        
+        console.log('✅ Proyecto eliminado correctamente:', response)
+        return { success: true, data: response }
+        
+    } catch (error) {
+        console.error('❌ Error eliminando proyecto:', error)
+        console.error('🔍 Detalles del error:', {
+            message: error.message,
+            status: error.status,
+            url: error.url
+        })
         throw new Error('No se pudo eliminar el proyecto')
     }
 }
 
 // Cargar proyectos al montar el componente
 onMounted(() => {
+    console.log('🎬 Componente montado - Iniciando carga...')
     const cachedData = loadFromLocalStorage()
     if (cachedData && cachedData.length > 0) {
         proyectos.value = cachedData
         pending.value = false
+        console.log('✅ Cache cargado al montar:', proyectos.value.length)
     }
     
     fetchProyectos()
