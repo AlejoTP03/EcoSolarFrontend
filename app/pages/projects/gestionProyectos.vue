@@ -42,9 +42,9 @@
             </button>
         </div>
 
-        <!-- Contenido de la tabla -->
+        <!-- Contenido de la tabla CON EL NUEVO COMPONENTE -->
         <div v-else class="w-full max-w-none m-0 p-0">
-            <TablaGenerica 
+            <TablaGenericaConEstados 
                 :columns="columnas"
                 :data="proyectosFormateados"
                 @edit="editarProyecto"
@@ -74,8 +74,8 @@
 </template>
 
 <script setup>
-// Importar componentes
-import TablaGenerica from '~/components/TablaGenerica.vue'
+// Importar componentes - USANDO EL NUEVO COMPONENTE
+import TablaGenericaConEstados from '~/components/TablaGenericaConEstados.vue'
 import BottonAgregar from '~/components/BottonAgregar.vue'
 import ModalConfirmacion from '~/components/ModalConfirmacion.vue'
 import NotificacionEsquina from '~/components/NotificacionEsquina.vue'
@@ -96,6 +96,24 @@ const STORAGE_KEY = 'projects_table_cache'
 
 // Columnas de la tabla
 const columnas = ['Nombre', 'Costo', 'Fechas', 'Estado', 'Cliente', 'Equipos', 'Descripción']
+
+// Función para obtener clase de color según el estado
+const obtenerClaseEstado = (estado) => {
+    const estadoLower = estado?.toLowerCase() || ''
+    
+    switch(estadoLower) {
+        case 'pendiente':
+            return 'estado-pendiente'
+        case 'activo':
+            return 'estado-activo'
+        case 'finalizado':
+            return 'estado-finalizado'
+        case 'cancelado':
+            return 'estado-cancelado'
+        default:
+            return 'estado-default'
+    }
+}
 
 // Función para mostrar notificación
 const mostrarNotificacionExito = (mensaje) => {
@@ -173,7 +191,7 @@ const formatearEquipos = (proyectoId) => {
     return equipos.join(', ')
 }
 
-// Datos formateados para la tabla
+// Datos formateados para la tabla - CON COLORES PARA ESTADO
 const proyectosFormateados = computed(() => {
     return proyectos.value.map(proyecto => {
         const fechaInicio = new Date(proyecto.fechaInicio).toLocaleDateString('es-ES')
@@ -185,6 +203,7 @@ const proyectosFormateados = computed(() => {
             : proyecto.descripcion || 'Sin descripción'
         
         const equiposFormateados = formatearEquipos(proyecto.idProyect)
+        const claseEstado = obtenerClaseEstado(proyecto.estado)
         
         console.log(`📊 Proyecto ${proyecto.idProyect} - Equipos formateados:`, equiposFormateados)
         
@@ -192,7 +211,10 @@ const proyectosFormateados = computed(() => {
             Nombre: proyecto.nombre || 'N/A',
             Costo: proyecto.costo ? `$${proyecto.costo.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'N/A',
             Fechas: `${fechaInicio} - ${fechaFin}`,
-            Estado: proyecto.estado || 'N/A',
+            Estado: {
+                texto: proyecto.estado || 'N/A',
+                clase: claseEstado
+            },
             Cliente: obtenerNombreCliente(proyecto.clientId),
             Equipos: equiposFormateados,
             Descripción: descripcionCorta,

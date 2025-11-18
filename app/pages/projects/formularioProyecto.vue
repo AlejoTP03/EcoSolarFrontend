@@ -58,7 +58,7 @@
                                 <option value="Pendiente">Pendiente</option>
                                 <option value="Activo">Activo</option>
                                 <option value="Finalizado">Finalizado</option>
-                                <option value="Finalizado">Cancelado</option>
+                                <option value="Cancelado">Cancelado</option>
                             </select>
                         </div>
 
