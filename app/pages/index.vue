@@ -3,6 +3,23 @@
         <!-- Header -->
         <header class="bg-[#174785] text-white px-8 py-4 flex items-center justify-between fixed top-0 right-0 left-64 z-10">
             <h1 class="text-2xl font-semibold">Dashboard</h1>
+            
+            <!-- Botón de logout con icono -->
+            <button 
+                @click="handleLogout"
+                class="flex items-center gap-2 hover:bg-blue-700 p-2 rounded-lg transition-colors"
+                title="Cerrar sesión"
+            >
+                <NuxtImg 
+                    src="/logout.png" 
+                    alt="Logout" 
+                    width="24" 
+                    height="24"
+                    class="filter invert brightness-0"
+                    loading="lazy"
+                />
+                <span class="hidden md:inline">Cerrar sesión</span>
+            </button>
         </header>
 
         <!-- Main Content -->
