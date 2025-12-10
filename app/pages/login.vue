@@ -11,6 +11,11 @@
             <h1 class="text-3xl font-bold text-center mb-8 text-[#0B2241]">Iniciar Sesión</h1>
             
             <form @submit.prevent="handleSubmit" class="space-y-6">
+            <!-- Mensaje de error -->
+            <div v-if="mensajeError" class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+                {{ mensajeError }}
+            </div>
+            
             <div>
                 <label class="block text-sm font-medium text-[#0B2241] mb-2">Usuario:</label>
                 <InputGenerico
@@ -85,17 +90,52 @@ const contrasena = ref('')
 // Estado para mostrar/ocultar contraseña
 const mostrarContrasena = ref(false)
 
+// Mensaje de error
+const mensajeError = ref('')
+
 // 1. Si la imagen está en la carpeta 'public':
 const fondoUrl = '/login.jpg'
 
 // Función para manejar el envío del formulario
-const handleSubmit = () => {
-  // Aquí iría la lógica para autenticar al usuario
-    console.log('Usuario:', usuario.value)
-    console.log('Contraseña:', contrasena.value)
+const handleSubmit = async () => {
+    // Limpiar mensaje de error previo
+    mensajeError.value = ''
     
-    // Por ahora, solo mostramos un mensaje
-    alert(`Iniciando sesión para: ${usuario.value}`)
+    try {
+        // Validar que los campos estén llenos
+        if (!usuario.value || !contrasena.value) {
+            mensajeError.value = 'Por favor, complete todos los campos'
+            return
+        }
+
+        // Preparar datos para enviar al servidor
+        const bodyData = {
+            usuario: usuario.value.trim(),
+            contrasena: contrasena.value
+        }
+
+        console.log('📤 Iniciando sesión:', { usuario: bodyData.usuario, contrasena: '***' })
+
+        // Hacer petición POST al endpoint de login
+        const response = await $fetch('http://localhost:4000/user/login', {
+            method: 'POST',
+            body: bodyData,
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+
+        console.log('✅ Login exitoso:', response)
+        
+        // Redirigir a la página index si todo sale bien
+        await navigateTo('/')
+        
+    } catch (error) {
+        console.error('❌ Error al iniciar sesión:', error)
+        
+        // Mostrar mensaje de error al usuario
+        mensajeError.value = 'Usuario no Autorizado'
+    }
 }
 </script>
 
