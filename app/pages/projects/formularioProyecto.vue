@@ -284,7 +284,7 @@ const fetchEquipos = async () => {
     console.log('🔍 [DEBUG] Iniciando fetchEquipos...')
     try {
         if (!hasToken()) {
-            await navigateTo('/login')
+            await navigateTo('/')
             return
         }
 
@@ -306,7 +306,7 @@ const fetchEquipos = async () => {
     } catch (error) {
         console.error('🔍 [DEBUG] Error en fetchEquipos:', error)
         if (error?.status === 401 || error?.statusCode === 401) {
-            await navigateTo('/login')
+            await navigateTo('/')
             return
         }
         mostrarToast('error', 'Error', 'No se pudieron cargar los equipos')
@@ -322,7 +322,7 @@ const fetchClientes = async () => {
     console.log('🔍 [DEBUG] Iniciando fetchClientes...')
     try {
         if (!hasToken()) {
-            await navigateTo('/login')
+            await navigateTo('/')
             return
         }
 
@@ -344,7 +344,7 @@ const fetchClientes = async () => {
     } catch (error) {
         console.error('🔍 [DEBUG] Error en fetchClientes:', error)
         if (error?.status === 401 || error?.statusCode === 401) {
-            await navigateTo('/login')
+            await navigateTo('/')
             return
         }
         mostrarToast('error', 'Error', 'No se pudieron cargar los clientes')
@@ -379,7 +379,7 @@ const cargarProyecto = async () => {
 
         // Siempre hacer la petición para tener datos actualizados
         if (!hasToken()) {
-            await navigateTo('/login')
+            await navigateTo('/')
             return
         }
 
@@ -423,7 +423,7 @@ const cargarProyecto = async () => {
     } catch (error) {
         console.error('🔍 [DEBUG] Error al cargar proyecto:', error)
         if (error?.status === 401 || error?.statusCode === 401) {
-            await navigateTo('/login')
+            await navigateTo('/')
             return
         }
         mostrarToast('error', 'Error', 'No se pudo cargar la información del proyecto')
@@ -435,7 +435,7 @@ onMounted(async () => {
     // Verificar si hay token antes de cargar datos
     if (!hasToken()) {
         console.warn('⚠️ No hay token, redirigiendo al login...')
-        await navigateTo('/login')
+        await navigateTo('/')
         return
     }
 
@@ -544,7 +544,7 @@ const agregarProyecto = async () => {
         console.log('🔍 [DEBUG] Body enviado:', JSON.stringify(datosEnvio, null, 2))
         
         if (!hasToken()) {
-            await navigateTo('/login')
+            await navigateTo('/')
             return
         }
 
@@ -568,7 +568,7 @@ const agregarProyecto = async () => {
         console.error('🔍 [DEBUG] Error completo al agregar proyecto:', error)
         
         if (error?.status === 401 || error?.statusCode === 401) {
-            await navigateTo('/login')
+            await navigateTo('/')
             return
         }
         
@@ -639,7 +639,7 @@ const actualizarProyecto = async () => {
         console.log('🔍 [DEBUG] Body enviado:', JSON.stringify(datosActualizacion, null, 2))
         
         if (!hasToken()) {
-            await navigateTo('/login')
+            await navigateTo('/')
             return
         }
 
@@ -665,7 +665,7 @@ const actualizarProyecto = async () => {
         console.error('🔍 [DEBUG] Error completo al actualizar proyecto:', error)
         
         if (error?.status === 401 || error?.statusCode === 401) {
-            await navigateTo('/login')
+            await navigateTo('/')
             return
         }
         

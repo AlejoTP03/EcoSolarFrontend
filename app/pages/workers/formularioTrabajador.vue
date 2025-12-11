@@ -175,7 +175,7 @@ const fetchEquipos = async () => {
     equiposPending.value = true
     try {
         if (!hasToken()) {
-            await navigateTo('/login')
+            await navigateTo('/')
             return
         }
 
@@ -192,7 +192,7 @@ const fetchEquipos = async () => {
         }
     } catch (error) {
         if (error?.status === 401 || error?.statusCode === 401) {
-            await navigateTo('/login')
+            await navigateTo('/')
             return
         }
         mostrarToast('error', 'Error', 'No se pudieron cargar los equipos')
@@ -221,7 +221,7 @@ const cargarTrabajador = async () => {
         }
 
         if (!hasToken()) {
-            await navigateTo('/login')
+            await navigateTo('/')
             return
         }
 
@@ -267,7 +267,7 @@ const cargarTrabajador = async () => {
         
     } catch (error) {
         if (error?.status === 401 || error?.statusCode === 401) {
-            await navigateTo('/login')
+            await navigateTo('/')
             return
         }
         mostrarToast('error', 'Error', 'No se pudo cargar la información del trabajador')
@@ -278,7 +278,7 @@ onMounted(async () => {
     // Verificar si hay token antes de cargar datos
     if (!hasToken()) {
         console.warn('⚠️ No hay token, redirigiendo al login...')
-        await navigateTo('/login')
+        await navigateTo('/')
         return
     }
 
@@ -318,7 +318,7 @@ const agregarTrabajador = async () => {
         }
 
         if (!hasToken()) {
-            await navigateTo('/login')
+            await navigateTo('/')
             return
         }
 
@@ -333,7 +333,7 @@ const agregarTrabajador = async () => {
         limpiarStorage()
     } catch (error) {
         if (error?.status === 401 || error?.statusCode === 401) {
-            await navigateTo('/login')
+            await navigateTo('/')
             return
         }
         mostrarToast('error', 'Error', 'Error al agregar trabajador. Por favor, intente nuevamente.')
@@ -355,7 +355,7 @@ const actualizarTrabajador = async () => {
         }
 
         if (!hasToken()) {
-            await navigateTo('/login')
+            await navigateTo('/')
             return
         }
 
@@ -373,11 +373,11 @@ const actualizarTrabajador = async () => {
         limpiarStorage()
 
         setTimeout(() => {
-            navigateTo('/gestionTrabajador')
+            navigateTo('/workers/gestionTrabajador')
         }, 1500)
     } catch (error) {
         if (error?.status === 401 || error?.statusCode === 401) {
-            await navigateTo('/login')
+            await navigateTo('/')
             return
         }
         mostrarToast('error', 'Error', 'Error al actualizar trabajador. Por favor, intente nuevamente.')

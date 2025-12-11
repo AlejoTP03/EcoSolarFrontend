@@ -131,7 +131,7 @@ const obtenerNombreCliente = (clientId) => {
 const obtenerEquiposProyecto = async (proyectoId) => {
     try {
         if (!hasToken()) {
-            await navigateTo('/login')
+            await navigateTo('/')
             return []
         }
 
@@ -157,7 +157,7 @@ const obtenerEquiposProyecto = async (proyectoId) => {
         
         // Si es error 401, redirigir al login
         if (error?.status === 401 || error?.statusCode === 401) {
-            await navigateTo('/login')
+            await navigateTo('/')
             return []
         }
         
@@ -271,7 +271,7 @@ const { getAuthHeaders, hasToken } = useAuthToken()
 const fetchClientes = async () => {
     try {
         if (!hasToken()) {
-            await navigateTo('/login')
+            await navigateTo('/')
             return
         }
 
@@ -286,7 +286,7 @@ const fetchClientes = async () => {
     } catch (error) {
         console.error('Error cargando clientes:', error)
         if (error?.status === 401 || error?.statusCode === 401) {
-            await navigateTo('/login')
+            await navigateTo('/')
         }
     }
 }
@@ -297,7 +297,7 @@ const fetchProyectos = async () => {
     if (!hasToken()) {
         console.warn('⚠️ No hay token de autenticación')
         error.value = new Error('No autenticado. Por favor, inicia sesión.')
-        await navigateTo('/login')
+        await navigateTo('/')
         return
     }
 
@@ -344,7 +344,7 @@ const fetchProyectos = async () => {
         // Si es error 401, el token puede ser inválido
         if (err?.status === 401 || err?.statusCode === 401) {
             console.warn('⚠️ Token inválido o expirado, redirigiendo al login...')
-            await navigateTo('/login')
+            await navigateTo('/')
             return
         }
         
@@ -415,7 +415,7 @@ const eliminarProyectoBackend = async (proyectoId) => {
     try {
         // Verificar token antes de eliminar
         if (!hasToken()) {
-            await navigateTo('/login')
+            await navigateTo('/')
             throw new Error('No autenticado')
         }
 
@@ -439,7 +439,7 @@ const eliminarProyectoBackend = async (proyectoId) => {
         
         // Si es error 401, redirigir al login
         if (error?.status === 401 || error?.statusCode === 401) {
-            await navigateTo('/login')
+            await navigateTo('/')
         }
         
         throw new Error('No se pudo eliminar el proyecto')
@@ -451,7 +451,7 @@ onMounted(async () => {
     // Verificar si hay token antes de cargar datos
     if (!hasToken()) {
         console.warn('⚠️ No hay token, redirigiendo al login...')
-        await navigateTo('/login')
+        await navigateTo('/')
         return
     }
 

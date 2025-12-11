@@ -175,7 +175,7 @@ onMounted(async () => {
     const { hasToken } = useAuthToken()
     if (!hasToken()) {
         console.warn('⚠️ No hay token, redirigiendo al login...')
-        await navigateTo('/login')
+        await navigateTo('/')
         return
     }
 
@@ -224,7 +224,7 @@ const cargarCliente = async () => {
 
         // Siempre hacer la petición para tener datos actualizados
         if (!hasToken()) {
-            await navigateTo('/login')
+            await navigateTo('/')
             return
         }
 
@@ -252,7 +252,7 @@ const cargarCliente = async () => {
     } catch (error) {
         console.error('Error al cargar cliente:', error)
         if (error?.status === 401 || error?.statusCode === 401) {
-            await navigateTo('/login')
+            await navigateTo('/')
             return
         }
         mostrarToast('error', 'Error', 'No se pudo cargar la información del cliente')
@@ -274,7 +274,7 @@ const agregarCliente = async () => {
         const { getAuthHeaders, hasToken } = useAuthToken()
 
         if (!hasToken()) {
-            await navigateTo('/login')
+            await navigateTo('/')
             return
         }
 
@@ -299,7 +299,7 @@ const agregarCliente = async () => {
     } catch (error) {
         console.error('Error al agregar cliente:', error)
         if (error?.status === 401 || error?.statusCode === 401) {
-            await navigateTo('/login')
+            await navigateTo('/')
             return
         }
         mostrarToast('error', 'Error', 'Error al agregar cliente. Por favor, intente nuevamente.')
@@ -321,7 +321,7 @@ const actualizarCliente = async () => {
         const { getAuthHeaders, hasToken } = useAuthToken()
 
         if (!hasToken()) {
-            await navigateTo('/login')
+            await navigateTo('/')
             return
         }
 
@@ -347,13 +347,13 @@ const actualizarCliente = async () => {
         
         // Navegar de vuelta a la gestión de clientes después de actualizar
         setTimeout(() => {
-            navigateTo('/gestionClientes')
+            navigateTo('/clients/gestionClientes')
         }, 1500)
         
     } catch (error) {
         console.error('Error al actualizar cliente:', error)
         if (error?.status === 401 || error?.statusCode === 401) {
-            await navigateTo('/login')
+            await navigateTo('/')
             return
         }
         mostrarToast('error', 'Error', 'Error al actualizar cliente. Por favor, intente nuevamente.')

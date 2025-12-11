@@ -1,261 +1,211 @@
 <template>
-    <div>
-        <!-- Header -->
-        <header class="bg-[#174785] text-white px-8 py-4 flex items-center justify-between fixed top-0 right-0 left-64 z-10">
-            <h1 class="text-2xl font-semibold">Dashboard</h1>
+    <div class="min-h-screen flex">
+        <!-- Sección de la imagen (mitad izquierda) -->
+        <div class="hidden lg:flex lg:w-1/2 bg-cover bg-center" 
+            :style="{ backgroundImage: `url(${fondoUrl})` }">
+        </div>
+        
+        <!-- Sección del formulario (mitad derecha) -->
+        <div class="w-full lg:w-1/2 flex items-center justify-center bg-gradient-to-br from-[#174785] to-[#0B2241] p-4">
+        <div class="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
+            <h1 class="text-3xl font-bold text-center mb-8 text-[#0B2241]">Iniciar Sesión</h1>
             
-            <!-- Botón de logout con icono -->
-            <button 
-                @click="handleLogout"
-                class="flex items-center gap-2 hover:bg-blue-700 p-2 rounded-lg transition-colors"
-                title="Cerrar sesión"
-            >
-                <NuxtImg 
-                    src="/logout.png" 
-                    alt="Logout" 
-                    width="24" 
-                    height="24"
-                    class="filter invert brightness-0"
-                    loading="lazy"
-                />
-                <span class="hidden md:inline">Cerrar sesión</span>
-            </button>
-        </header>
-
-        <!-- Main Content -->
-        <main class="mt-16 p-8">
-            <!-- Estados de carga y error -->
-            <div v-if="pending" class="text-center py-8">
-                <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                <p class="mt-2 text-gray-600">Cargando datos...</p>
+            <form @submit.prevent="handleSubmit" class="space-y-6">
+            <!-- Mensaje de error -->
+            <div v-if="error" class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+                {{ error }}
             </div>
-
-            <div v-else-if="error" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-                <p>Error al cargar los datos: {{ error.message }}</p>
-                <button 
-                    @click="fetchAllData" 
-                    class="mt-2 bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition-colors"
+            
+            <!-- Mensaje de éxito -->
+            <div v-if="mensajeExito" class="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg text-sm">
+                {{ mensajeExito }}
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-[#0B2241] mb-2">Usuario:</label>
+                <InputGenerico
+                type="text"
+                placeholder="Ingresa tu usuario"
+                v-model="credentials.usuario"
+                class="w-full"
+                :disabled="isLoading"
+                />
+            </div>
+            
+            <div class="relative">
+                <label class="block text-sm font-medium text-[#0B2241] mb-2">Contraseña:</label>
+                <InputGenerico
+                :type="mostrarContrasena ? 'text' : 'password'"
+                placeholder="Ingresa tu contraseña"
+                v-model="credentials.contrasena"
+                class="w-full pr-10"
+                :disabled="isLoading"
+                />
+                <!-- Botón para mostrar/ocultar contraseña -->
+                <button
+                type="button"
+                @click="mostrarContrasena = !mostrarContrasena"
+                class="absolute right-3 bottom-3 text-gray-500 hover:text-[#174785] transition-colors duration-200"
+                :disabled="isLoading"
                 >
-                    Reintentar
+                <svg 
+                    v-if="mostrarContrasena" 
+                    xmlns="http://www.w3.org/2000/svg" 
+                    class="h-5 w-5" 
+                    viewBox="0 0 20 20" 
+                    fill="currentColor"
+                >
+                    <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+                    <path fill-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd" />
+                </svg>
+                <svg 
+                    v-else 
+                    xmlns="http://www.w3.org/2000/svg" 
+                    class="h-5 w-5" 
+                    viewBox="0 0 20 20" 
+                    fill="currentColor"
+                >
+                    <path fill-rule="evenodd" d="M3.707 2.293a1 1 0 00-1.414 1.414l14 14a1 1 0 001.414-1.414l-1.473-1.473A10.014 10.014 0 0019.542 10C18.268 5.943 14.478 3 10 3a9.958 9.958 0 00-4.512 1.074l-1.78-1.781zm4.261 4.26l1.514 1.515a2.003 2.003 0 012.45 2.45l1.514 1.514a4 4 0 00-5.478-5.478z" clip-rule="evenodd" />
+                    <path d="M12.454 16.697L9.75 13.992a4 4 0 01-3.742-3.741L2.335 6.578A9.98 9.98 0 00.458 10c1.274 4.057 5.065 7 9.542 7 .847 0 1.669-.105 2.454-.303z" />
+                </svg>
                 </button>
             </div>
-
-            <!-- Grid de Paneles -->
-            <div v-else class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 mx-auto justify-center">
-                <!-- Total Clientes -->
-                <CuadroPanel 
-                    color-fondo="#FFFFFF"
-                    texto="Total Clientes" 
-                    :numero="totalClientes"
-                />
-                
-                <!-- Total Proyectos -->
-                <CuadroPanel 
-                    color-fondo="#8B9474"
-                    texto="Total Proyectos" 
-                    :numero="totalProyectos"
-                />
-                
-                <!-- Total Equipos -->
-                <CuadroPanel 
-                    color-fondo="#6CAE75"
-                    texto="Total Trabajadores" 
-                    :numero="totalTrabajadores"
-                />
-            </div>
-        </main>
+            
+            <button
+                type="submit"
+                :disabled="isLoading"
+                class="w-full bg-[#174785] hover:bg-[#0B2241] text-white font-bold py-3 px-4 rounded-lg transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-[#174785] focus:ring-opacity-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+                <span v-if="isLoading">Iniciando sesión...</span>
+                <span v-else>Aceptar</span>
+            </button>
+            </form>
+        </div>
+        </div>
     </div>
 </template>
 
 <script setup>
-// Estados reactivos para cada métrica
-const totalClientes = ref(0)
-const totalProyectos = ref(0)
-const totalTrabajadores = ref(0)
-const pending = ref(false)
-const error = ref(null)
+    import { defineAsyncComponent, ref } from '#imports'
 
-// Claves para localStorage
-const STORAGE_KEYS = {
-  clientes: 'dashboard_total_clientes',
-  proyectos: 'dashboard_total_proyectos',
-  trabajadores: 'dashboard_total_trabajadores'
-}
-
-// URLs de las APIs
-const API_ENDPOINTS = {
-  clientes: 'http://localhost:4000/client/count/total',
-  proyectos: 'http://localhost:4000/proyect/count/total',
-  trabajadores: 'http://localhost:4000/worker/count/total'
-}
-
-// Función para guardar en localStorage
-const saveToLocalStorage = (key, data) => {
-    if (typeof window !== 'undefined') {
-        try {
-            const storageData = {
-                value: data,
-                timestamp: new Date().getTime()
-            }
-            localStorage.setItem(key, JSON.stringify(storageData))
-            console.log(`Datos guardados en localStorage (${key}):`, data)
-        } catch (e) {
-            console.error(`Error guardando en localStorage (${key}):`, e)
-        }
+    definePageMeta({
+    layout: false,
+    auth: {
+        unauthenticatedOnly: true,
+        navigateAuthenticatedTo: '/'
     }
-}
-
-// Función para cargar desde localStorage
-const loadFromLocalStorage = (key) => {
-    if (typeof window !== 'undefined') {
-        try {
-            const stored = localStorage.getItem(key)
-            console.log(`Datos recuperados de localStorage (${key}):`, stored)
-            
-            if (stored) {
-                const parsedData = JSON.parse(stored)
-                return parsedData.value
-            }
-        } catch (e) {
-            console.error(`Error leyendo localStorage (${key}):`, e)
-        }
-    }
-    return null
-}
-
-// Usar el composable para obtener el token
-const { getAuthHeaders, hasToken, removeToken } = useAuthToken()
-
-// Función para manejar el logout
-const handleLogout = async () => {
-    // Eliminar el token
-    removeToken()
-    console.log('✅ Sesión cerrada')
-    
-    // Redirigir al login
-    await navigateTo('/login')
-}
-
-// Función para obtener datos de una API específica
-const fetchData = async (endpoint, storageKey, refValue) => {
-    try {
-        // Verificar si hay token antes de hacer la petición
-        if (!hasToken()) {
-            console.warn('⚠️ No hay token de autenticación')
-            // Redirigir al login si no hay token
-            await navigateTo('/login')
-            return { success: false, error: 'No autenticado' }
-        }
-
-        console.log(`Haciendo petición a la API: ${endpoint}`)
-        const response = await fetch(endpoint, {
-            method: 'GET',
-            headers: getAuthHeaders()
-        })
-        
-        if (!response.ok) {
-            // Si es 401, el token puede ser inválido, redirigir al login
-            if (response.status === 401) {
-                console.warn('⚠️ Token inválido o expirado')
-                await navigateTo('/login')
-                return { success: false, error: 'No autorizado' }
-            }
-            throw new Error(`Error HTTP: ${response.status} para ${endpoint}`)
-        }
-        
-        const data = await response.json()
-        console.log(`Respuesta de la API (${endpoint}):`, data)
-        
-        // Asignar el valor desde la respuesta de la API
-        // Asumiendo que todas las APIs devuelven un objeto con una propiedad que contiene el total
-        let value = 0
-        
-        // Manejar diferentes estructuras de respuesta
-        if (data && typeof data === 'object') {
-            // Buscar cualquier propiedad que contenga "total" en su nombre
-            const totalKey = Object.keys(data).find(key => 
-                key.toLowerCase().includes('total')
-            )
-            value = totalKey ? data[totalKey] : 0
-        } else if (typeof data === 'number') {
-            value = data
-        }
-        
-        refValue.value = value
-        saveToLocalStorage(storageKey, value)
-        console.log(`${storageKey} actualizado:`, value)
-        
-        return { success: true }
-    } catch (err) {
-        console.error(`Error fetching data from ${endpoint}:`, err)
-        return { success: false, error: err }
-    }
-}
-
-// Función para obtener todos los datos
-const fetchAllData = async () => {
-    pending.value = true
-    error.value = null
-    
-    try {
-        // Hacer todas las peticiones en paralelo
-        const results = await Promise.allSettled([
-            fetchData(API_ENDPOINTS.clientes, STORAGE_KEYS.clientes, totalClientes),
-            fetchData(API_ENDPOINTS.proyectos, STORAGE_KEYS.proyectos, totalProyectos),
-            fetchData(API_ENDPOINTS.trabajadores, STORAGE_KEYS.trabajadores, totalTrabajadores)
-        ])
-        
-        // Verificar si hubo errores
-        const errors = results
-            .filter(result => result.status === 'rejected' || 
-                            (result.status === 'fulfilled' && !result.value.success))
-            .map(result => result.reason || result.value.error)
-        
-        if (errors.length > 0) {
-            console.warn('Algunas peticiones fallaron:', errors)
-            
-            // Si todas las peticiones fallaron, establecer un error general
-            if (errors.length === results.length) {
-                throw new Error('No se pudieron cargar los datos de ninguna fuente')
-            }
-        }
-        
-    } catch (err) {
-        error.value = err
-        console.error('Error general fetching data:', err)
-    } finally {
-        pending.value = false
-    }
-}
-
-// Cargar datos al montar el componente
-onMounted(async () => {
-    // Verificar si hay token antes de cargar datos
-    if (!hasToken()) {
-        console.warn('⚠️ No hay token, redirigiendo al login...')
-        await navigateTo('/login')
-        return
-    }
-
-    console.log('Componente montado, cargando datos...')
-    
-    // Primero intentar cargar desde localStorage
-    const storedClientes = loadFromLocalStorage(STORAGE_KEYS.clientes)
-    const storedProyectos = loadFromLocalStorage(STORAGE_KEYS.proyectos)
-    const storedTrabajadores = loadFromLocalStorage(STORAGE_KEYS.trabajadores)
-    
-    if (storedClientes !== null) totalClientes.value = storedClientes
-    if (storedProyectos !== null) totalProyectos.value = storedProyectos
-    if (storedTrabajadores !== null) totalTrabajadores.value = storedTrabajadores
-    
-    console.log('Datos cargados desde localStorage:', {
-        clientes: totalClientes.value,
-        proyectos: totalProyectos.value,
-        trabajadores: totalTrabajadores.value
     })
-    
-    // Luego hacer las peticiones a las APIs para actualizar
-    fetchAllData()
-})
 
+    // Importar el componente InputGenerico
+    const InputGenerico = defineAsyncComponent(() => import('~/components/InputGenerico.vue'))
+
+    // Usar el composable para gestionar el token
+    const { setToken, hasToken } = useAuthToken()
+
+    // Datos reactivos para el formulario
+    const credentials = ref({
+    usuario: '',
+    contrasena: ''
+    })
+
+    // Estado para mostrar/ocultar contraseña
+    const mostrarContrasena = ref(false)
+
+    // Estados de carga y errores
+    const isLoading = ref(false)
+    const error = ref('')
+    const mensajeExito = ref('')
+
+    // URL de la imagen de fondo
+    const fondoUrl = '/login.jpg'
+
+    // Función para manejar el envío del formulario
+    const handleSubmit = async () => {
+    // Resetear estados
+    error.value = ''
+    mensajeExito.value = ''
+    isLoading.value = true
+
+    try {
+        // Validar que los campos estén llenos
+        if (!credentials.value.usuario || !credentials.value.contrasena) {
+        error.value = 'Por favor, complete todos los campos'
+        isLoading.value = false
+        return
+        }
+
+        console.log('📤 Iniciando sesión...', { 
+        usuario: credentials.value.usuario 
+        })
+
+        // Preparar datos para enviar al servidor
+        const bodyData = {
+            usuario: credentials.value.usuario.trim(),
+            contrasena: credentials.value.contrasena
+        }
+
+        // Hacer petición POST al endpoint de login
+        const response = await $fetch('http://localhost:4000/user/login', {
+            method: 'POST',
+            body: bodyData,
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+
+        console.log('✅ Respuesta del servidor:', response)
+
+        // Extraer el token de la respuesta
+        // El token puede venir en diferentes formatos según el backend
+        let token = null
+        if (response.token) {
+            token = response.token
+        } else if (response.accessToken) {
+            token = response.accessToken
+        } else if (response.data?.token) {
+            token = response.data.token
+        } else if (typeof response === 'string') {
+            // Si la respuesta es directamente el token
+            token = response
+        }
+
+        if (!token) {
+            throw new Error('No se recibió un token del servidor')
+        }
+
+        // Guardar el token en localStorage
+        setToken(token)
+        console.log('✅ Token guardado correctamente')
+
+        mensajeExito.value = 'Inicio de sesión exitoso'
+        
+        // Redirigir a la página index después de un breve delay
+        setTimeout(async () => {
+            await navigateTo('/dashboard')
+        }, 500)
+
+    } catch (err) {
+        console.error('❌ Error al iniciar sesión:', err)
+        
+        // Manejar diferentes tipos de errores
+        if (err?.status === 401 || err?.statusCode === 401) {
+        error.value = 'Usuario no Autorizado'
+        } else if (err?.message?.includes('Network') || err?.message?.includes('fetch')) {
+        error.value = 'Error de conexión. Verifica tu red.'
+        } else {
+        // Siempre mostrar "Usuario no Autorizado" para errores de autenticación
+        error.value = 'Usuario no Autorizado'
+        }
+    } finally {
+        isLoading.value = false
+    }
+    }
+
+    // Verificar si ya hay una sesión activa al cargar la página
+    onMounted(() => {
+    if (hasToken()) {
+        console.log('✅ Token encontrado, redirigiendo a index...')
+        navigateTo('/')
+    }
+    })
 </script>

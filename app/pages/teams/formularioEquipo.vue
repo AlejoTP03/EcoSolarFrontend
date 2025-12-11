@@ -150,7 +150,7 @@ const cargarEquipo = async () => {
         const { getAuthHeaders, hasToken } = useAuthToken()
 
         if (!hasToken()) {
-            await navigateTo('/login')
+            await navigateTo('/')
             return
         }
 
@@ -191,7 +191,7 @@ const cargarEquipo = async () => {
         
     } catch (error) {
         if (error?.status === 401 || error?.statusCode === 401) {
-            await navigateTo('/login')
+            await navigateTo('/')
             return
         }
         mostrarToast('error', 'Error', 'No se pudo cargar la información del equipo')
@@ -203,7 +203,7 @@ onMounted(async () => {
     const { hasToken } = useAuthToken()
     if (!hasToken()) {
         console.warn('⚠️ No hay token, redirigiendo al login...')
-        await navigateTo('/login')
+        await navigateTo('/')
         return
     }
 
@@ -240,7 +240,7 @@ const agregarEquipo = async () => {
         const { getAuthHeaders, hasToken } = useAuthToken()
 
         if (!hasToken()) {
-            await navigateTo('/login')
+            await navigateTo('/')
             return
         }
 
@@ -255,7 +255,7 @@ const agregarEquipo = async () => {
         limpiarStorage()
     } catch (error) {
         if (error?.status === 401 || error?.statusCode === 401) {
-            await navigateTo('/login')
+            await navigateTo('/')
             return
         }
         mostrarToast('error', 'Error', 'Error al agregar equipo. Por favor, intente nuevamente.')
@@ -276,7 +276,7 @@ const actualizarEquipo = async () => {
         const { getAuthHeaders, hasToken } = useAuthToken()
 
         if (!hasToken()) {
-            await navigateTo('/login')
+            await navigateTo('/')
             return
         }
 
@@ -298,7 +298,7 @@ const actualizarEquipo = async () => {
         }, 1500)
     } catch (error) {
         if (error?.status === 401 || error?.statusCode === 401) {
-            await navigateTo('/login')
+            await navigateTo('/')
             return
         }
         mostrarToast('error', 'Error', 'Error al actualizar equipo. Por favor, intente nuevamente.')

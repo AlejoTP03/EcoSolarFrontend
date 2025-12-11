@@ -167,7 +167,7 @@ const fetchClientes = async () => {
             console.warn('⚠️ No hay token de autenticación')
             error.value = new Error('No autenticado. Por favor, inicia sesión.')
             // Redirigir al login si no hay token
-            await navigateTo('/login')
+            await navigateTo('/')
             return
         }
 
@@ -204,7 +204,7 @@ const fetchClientes = async () => {
         // Si es error 401, el token puede ser inválido
         if (err?.status === 401 || err?.statusCode === 401) {
             console.warn('⚠️ Token inválido o expirado, redirigiendo al login...')
-            await navigateTo('/login')
+            await navigateTo('/')
             return
         }
         
@@ -281,7 +281,7 @@ const eliminarClienteBackend = async (idClient) => {
     try {
         // Verificar token antes de eliminar
         if (!hasToken()) {
-            await navigateTo('/login')
+            await navigateTo('/')
             throw new Error('No autenticado')
         }
 
@@ -296,7 +296,7 @@ const eliminarClienteBackend = async (idClient) => {
         
         // Si es error 401, redirigir al login
         if (err?.status === 401 || err?.statusCode === 401) {
-            await navigateTo('/login')
+            await navigateTo('/')
         }
         
         throw new Error('No se pudo eliminar el cliente')
@@ -308,7 +308,7 @@ onMounted(async () => {
     // Verificar si hay token antes de cargar datos
     if (!hasToken()) {
         console.warn('⚠️ No hay token, redirigiendo al login...')
-        await navigateTo('/login')
+        await navigateTo('/')
         return
     }
 

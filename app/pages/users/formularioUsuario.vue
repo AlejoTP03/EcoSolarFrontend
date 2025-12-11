@@ -164,7 +164,7 @@ onMounted(async () => {
     const { hasToken } = useAuthToken()
     if (!hasToken()) {
         console.warn('⚠️ No hay token, redirigiendo al login...')
-        await navigateTo('/login')
+        await navigateTo('/')
         return
     }
 
@@ -215,7 +215,7 @@ const cargarUsuario = async () => {
 
         // Siempre hacer la petición para tener datos actualizados
         if (!hasToken()) {
-            await navigateTo('/login')
+            await navigateTo('/')
             return
         }
 
@@ -257,7 +257,7 @@ const cargarUsuario = async () => {
         console.error('❌ Error al cargar usuario:', error)
         
         if (error?.status === 401 || error?.statusCode === 401) {
-            await navigateTo('/login')
+            await navigateTo('/')
             return
         }
         
@@ -307,7 +307,7 @@ const agregarUsuario = async () => {
         const { getAuthHeaders, hasToken } = useAuthToken()
 
         if (!hasToken()) {
-            await navigateTo('/login')
+            await navigateTo('/')
             return
         }
 
@@ -332,7 +332,7 @@ const agregarUsuario = async () => {
         console.error('❌ Error completo al agregar usuario:', error)
         
         if (error?.status === 401 || error?.statusCode === 401) {
-            await navigateTo('/login')
+            await navigateTo('/')
             return
         }
         
@@ -375,7 +375,7 @@ const actualizarUsuario = async () => {
         const { getAuthHeaders, hasToken } = useAuthToken()
 
         if (!hasToken()) {
-            await navigateTo('/login')
+            await navigateTo('/')
             return
         }
 
@@ -402,7 +402,7 @@ const actualizarUsuario = async () => {
         console.error('❌ Error completo al actualizar usuario:', error)
         
         if (error?.status === 401 || error?.statusCode === 401) {
-            await navigateTo('/login')
+            await navigateTo('/')
             return
         }
         
