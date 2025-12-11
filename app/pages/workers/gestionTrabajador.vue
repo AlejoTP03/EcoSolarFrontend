@@ -98,13 +98,23 @@
         mostrarNotificacion.value = true
     }
 
+    // Usar el composable para obtener el token
+    const { getAuthHeaders, hasToken } = useAuthToken()
+
     const obtenerEspecialidadEquipo = async (idEquipo) => {
         if (especialidadesEquipos.value[idEquipo]) {
             return especialidadesEquipos.value[idEquipo]
         }
         
         try {
-            const response = await $fetch(`http://localhost:4000/team/${idEquipo}/especialidad`)
+            if (!hasToken()) {
+                await navigateTo('/login')
+                return null
+            }
+
+            const response = await $fetch(`http://localhost:4000/team/${idEquipo}/especialidad`, {
+                headers: getAuthHeaders()
+            })
             
             if (response && response['Especialidad del equipo']) {
                 const especialidad = response['Especialidad del equipo'].especialidad
@@ -114,13 +124,23 @@
             
             return null
         } catch (error) {
+            if (error?.status === 401 || error?.statusCode === 401) {
+                await navigateTo('/login')
+            }
             return null
         }
     }
 
     const fetchEquipos = async () => {
         try {
-            const response = await $fetch('http://localhost:4000/team')
+            if (!hasToken()) {
+                await navigateTo('/login')
+                return
+            }
+
+            const response = await $fetch('http://localhost:4000/team', {
+                headers: getAuthHeaders()
+            })
             
             if (response && response['Todos los equipos']) {
                 equipos.value = response['Todos los equipos']
@@ -140,6 +160,9 @@
                 })
             }
         } catch (error) {
+            if (error?.status === 401 || error?.statusCode === 401) {
+                await navigateTo('/login')
+            }
         }
     }
 
@@ -190,6 +213,14 @@
     }
 
     const fetchTrabajadores = async () => {
+        // Verificar token antes de hacer la petición
+        if (!hasToken()) {
+            console.warn('⚠️ No hay token de autenticación')
+            error.value = new Error('No autenticado. Por favor, inicia sesión.')
+            await navigateTo('/login')
+            return
+        }
+
         pending.value = true
         error.value = null
         
@@ -198,9 +229,7 @@
             
             const data = await $fetch('http://localhost:4000/worker', {
                 method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
+                headers: getAuthHeaders()
             })
             
             if (data && data['Todos los trabajadores']) {
@@ -227,6 +256,13 @@
             
         } catch (err) {
             error.value = err
+            
+            // Si es error 401, el token puede ser inválido
+            if (err?.status === 401 || err?.statusCode === 401) {
+                console.warn('⚠️ Token inválido o expirado, redirigiendo al login...')
+                await navigateTo('/login')
+                return
+            }
             
             const cachedData = loadFromLocalStorage()
             if (cachedData && cachedData.length > 0) {
@@ -310,15 +346,33 @@
 
     const eliminarTrabajadorBackend = async (idTrabajador) => {
         try {
+            // Verificar token antes de eliminar
+            if (!hasToken()) {
+                await navigateTo('/login')
+                throw new Error('No autenticado')
+            }
+
             await $fetch(`http://localhost:4000/worker/${idTrabajador}`, {
-                method: 'DELETE'
+                method: 'DELETE',
+                headers: getAuthHeaders()
             })
         } catch (err) {
+            // Si es error 401, redirigir al login
+            if (err?.status === 401 || err?.statusCode === 401) {
+                await navigateTo('/login')
+            }
             throw new Error('No se pudo eliminar el trabajador')
         }
     }
 
-    onMounted(() => {
+    onMounted(async () => {
+        // Verificar si hay token antes de cargar datos
+        if (!hasToken()) {
+            console.warn('⚠️ No hay token, redirigiendo al login...')
+            await navigateTo('/login')
+            return
+        }
+
         const cachedData = loadFromLocalStorage()
         if (cachedData && cachedData.length > 0) {
             trabajadores.value = cachedData

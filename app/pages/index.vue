@@ -123,18 +123,43 @@ const loadFromLocalStorage = (key) => {
     return null
 }
 
+// Usar el composable para obtener el token
+const { getAuthHeaders, hasToken, removeToken } = useAuthToken()
+
+// Función para manejar el logout
+const handleLogout = async () => {
+    // Eliminar el token
+    removeToken()
+    console.log('✅ Sesión cerrada')
+    
+    // Redirigir al login
+    await navigateTo('/login')
+}
+
 // Función para obtener datos de una API específica
 const fetchData = async (endpoint, storageKey, refValue) => {
     try {
+        // Verificar si hay token antes de hacer la petición
+        if (!hasToken()) {
+            console.warn('⚠️ No hay token de autenticación')
+            // Redirigir al login si no hay token
+            await navigateTo('/login')
+            return { success: false, error: 'No autenticado' }
+        }
+
         console.log(`Haciendo petición a la API: ${endpoint}`)
         const response = await fetch(endpoint, {
             method: 'GET',
-            headers: {
-                'Content-Type': 'application/json'
-            }
+            headers: getAuthHeaders()
         })
         
         if (!response.ok) {
+            // Si es 401, el token puede ser inválido, redirigir al login
+            if (response.status === 401) {
+                console.warn('⚠️ Token inválido o expirado')
+                await navigateTo('/login')
+                return { success: false, error: 'No autorizado' }
+            }
             throw new Error(`Error HTTP: ${response.status} para ${endpoint}`)
         }
         
@@ -204,7 +229,14 @@ const fetchAllData = async () => {
 }
 
 // Cargar datos al montar el componente
-onMounted(() => {
+onMounted(async () => {
+    // Verificar si hay token antes de cargar datos
+    if (!hasToken()) {
+        console.warn('⚠️ No hay token, redirigiendo al login...')
+        await navigateTo('/login')
+        return
+    }
+
     console.log('Componente montado, cargando datos...')
     
     // Primero intentar cargar desde localStorage

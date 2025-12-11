@@ -130,6 +130,9 @@
         return null
     }
 
+    // Usar el composable para obtener el token
+    const { getAuthHeaders, hasToken } = useAuthToken()
+
     // Función para obtener equipos desde el backend
     const fetchEquipos = async () => {
         console.log('🚀 Iniciando fetchEquipos...')
@@ -137,14 +140,21 @@
         error.value = null
         
         try {
-            console.log('🌐 Haciendo petición a la API...')
+            // Verificar si hay token antes de hacer la petición
+            if (!hasToken()) {
+                console.warn('⚠️ No hay token de autenticación')
+                error.value = new Error('No autenticado. Por favor, inicia sesión.')
+                // Redirigir al login si no hay token
+                await navigateTo('/login')
+                return
+            }
+
+            console.log('🌐 Haciendo petición a la API con token...')
             
-            // Usar $fetch en lugar de useFetch para mejor control
+            // Usar $fetch con los headers de autenticación
             const data = await $fetch('http://localhost:4000/team/workers/count', {
                 method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
+                headers: getAuthHeaders()
             })
             
             console.log('📨 Respuesta completa de la API:', data)
@@ -168,6 +178,13 @@
         } catch (err) {
             error.value = err
             console.error('❌ Error fetching teams:', err)
+            
+            // Si es error 401, el token puede ser inválido
+            if (err?.status === 401 || err?.statusCode === 401) {
+                console.warn('⚠️ Token inválido o expirado, redirigiendo al login...')
+                await navigateTo('/login')
+                return
+            }
             
             // Intentar cargar del cache como respaldo
             console.log('🔄 Intentando cargar desde cache por error...')
@@ -231,19 +248,39 @@
     // Función para eliminar en el backend
     const eliminarEquipoBackend = async (idEquipo) => {
         try {
+            // Verificar token antes de eliminar
+            if (!hasToken()) {
+                await navigateTo('/login')
+                throw new Error('No autenticado')
+            }
+
             await $fetch(`http://localhost:4000/team/${idEquipo}`, {
-                method: 'DELETE'
+                method: 'DELETE',
+                headers: getAuthHeaders()
             })
             console.log('✅ Equipo eliminado correctamente del backend')
             
         } catch (err) {
             console.error('❌ Error eliminando equipo:', err)
+            
+            // Si es error 401, redirigir al login
+            if (err?.status === 401 || err?.statusCode === 401) {
+                await navigateTo('/login')
+            }
+            
             throw new Error('No se pudo eliminar el equipo')
         }
     }
 
     // Cargar equipos al montar el componente
-    onMounted(() => {
+    onMounted(async () => {
+        // Verificar si hay token antes de cargar datos
+        if (!hasToken()) {
+            console.warn('⚠️ No hay token, redirigiendo al login...')
+            await navigateTo('/login')
+            return
+        }
+
         console.log('🎬 Componente montado - Iniciando carga...')
         
         // Primero cargar desde cache inmediatamente

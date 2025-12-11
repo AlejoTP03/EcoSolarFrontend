@@ -12,8 +12,13 @@
             
             <form @submit.prevent="handleSubmit" class="space-y-6">
             <!-- Mensaje de error -->
-            <div v-if="mensajeError" class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
-                {{ mensajeError }}
+            <div v-if="error" class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+                {{ error }}
+            </div>
+            
+            <!-- Mensaje de éxito -->
+            <div v-if="mensajeExito" class="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg text-sm">
+                {{ mensajeExito }}
             </div>
             
             <div>
@@ -21,8 +26,9 @@
                 <InputGenerico
                 type="text"
                 placeholder="Ingresa tu usuario"
-                v-model="usuario"
+                v-model="credentials.usuario"
                 class="w-full"
+                :disabled="isLoading"
                 />
             </div>
             
@@ -31,14 +37,16 @@
                 <InputGenerico
                 :type="mostrarContrasena ? 'text' : 'password'"
                 placeholder="Ingresa tu contraseña"
-                v-model="contrasena"
+                v-model="credentials.contrasena"
                 class="w-full pr-10"
+                :disabled="isLoading"
                 />
                 <!-- Botón para mostrar/ocultar contraseña -->
                 <button
                 type="button"
                 @click="mostrarContrasena = !mostrarContrasena"
                 class="absolute right-3 bottom-3 text-gray-500 hover:text-[#174785] transition-colors duration-200"
+                :disabled="isLoading"
                 >
                 <svg 
                     v-if="mostrarContrasena" 
@@ -65,9 +73,11 @@
             
             <button
                 type="submit"
-                class="w-full bg-[#174785] hover:bg-[#0B2241] text-white font-bold py-3 px-4 rounded-lg transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-[#174785] focus:ring-opacity-50"
+                :disabled="isLoading"
+                class="w-full bg-[#174785] hover:bg-[#0B2241] text-white font-bold py-3 px-4 rounded-lg transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-[#174785] focus:ring-opacity-50 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-                Aceptar
+                <span v-if="isLoading">Iniciando sesión...</span>
+                <span v-else>Aceptar</span>
             </button>
             </form>
         </div>
@@ -76,45 +86,63 @@
 </template>
 
 <script setup>
-definePageMeta({
-    layout: false
-})
+    import { defineAsyncComponent, ref } from '#imports'
 
-// Importar el componente InputGenerico
-const InputGenerico = defineAsyncComponent(() => import('~/components/InputGenerico.vue'))
+    definePageMeta({
+    layout: false,
+    auth: {
+        unauthenticatedOnly: true,
+        navigateAuthenticatedTo: '/'
+    }
+    })
 
-// Datos reactivos para el formulario
-const usuario = ref('')
-const contrasena = ref('')
+    // Importar el componente InputGenerico
+    const InputGenerico = defineAsyncComponent(() => import('~/components/InputGenerico.vue'))
 
-// Estado para mostrar/ocultar contraseña
-const mostrarContrasena = ref(false)
+    // Usar el composable para gestionar el token
+    const { setToken, hasToken } = useAuthToken()
 
-// Mensaje de error
-const mensajeError = ref('')
+    // Datos reactivos para el formulario
+    const credentials = ref({
+    usuario: '',
+    contrasena: ''
+    })
 
-// 1. Si la imagen está en la carpeta 'public':
-const fondoUrl = '/login.jpg'
+    // Estado para mostrar/ocultar contraseña
+    const mostrarContrasena = ref(false)
 
-// Función para manejar el envío del formulario
-const handleSubmit = async () => {
-    // Limpiar mensaje de error previo
-    mensajeError.value = ''
-    
+    // Estados de carga y errores
+    const isLoading = ref(false)
+    const error = ref('')
+    const mensajeExito = ref('')
+
+    // URL de la imagen de fondo
+    const fondoUrl = '/login.jpg'
+
+    // Función para manejar el envío del formulario
+    const handleSubmit = async () => {
+    // Resetear estados
+    error.value = ''
+    mensajeExito.value = ''
+    isLoading.value = true
+
     try {
         // Validar que los campos estén llenos
-        if (!usuario.value || !contrasena.value) {
-            mensajeError.value = 'Por favor, complete todos los campos'
-            return
+        if (!credentials.value.usuario || !credentials.value.contrasena) {
+        error.value = 'Por favor, complete todos los campos'
+        isLoading.value = false
+        return
         }
+
+        console.log('📤 Iniciando sesión...', { 
+        usuario: credentials.value.usuario 
+        })
 
         // Preparar datos para enviar al servidor
         const bodyData = {
-            usuario: usuario.value.trim(),
-            contrasena: contrasena.value
+            usuario: credentials.value.usuario.trim(),
+            contrasena: credentials.value.contrasena
         }
-
-        console.log('📤 Iniciando sesión:', { usuario: bodyData.usuario, contrasena: '***' })
 
         // Hacer petición POST al endpoint de login
         const response = await $fetch('http://localhost:4000/user/login', {
@@ -125,20 +153,59 @@ const handleSubmit = async () => {
             }
         })
 
-        console.log('✅ Login exitoso:', response)
-        
-        // Redirigir a la página index si todo sale bien
-        await navigateTo('/')
-        
-    } catch (error) {
-        console.error('❌ Error al iniciar sesión:', error)
-        
-        // Mostrar mensaje de error al usuario
-        mensajeError.value = 'Usuario no Autorizado'
-    }
-}
-</script>
+        console.log('✅ Respuesta del servidor:', response)
 
-<style scoped>
-/* Estilos específicos para esta página si son necesarios */
-</style>
+        // Extraer el token de la respuesta
+        // El token puede venir en diferentes formatos según el backend
+        let token = null
+        if (response.token) {
+            token = response.token
+        } else if (response.accessToken) {
+            token = response.accessToken
+        } else if (response.data?.token) {
+            token = response.data.token
+        } else if (typeof response === 'string') {
+            // Si la respuesta es directamente el token
+            token = response
+        }
+
+        if (!token) {
+            throw new Error('No se recibió un token del servidor')
+        }
+
+        // Guardar el token en localStorage
+        setToken(token)
+        console.log('✅ Token guardado correctamente')
+
+        mensajeExito.value = 'Inicio de sesión exitoso'
+        
+        // Redirigir a la página index después de un breve delay
+        setTimeout(async () => {
+            await navigateTo('/')
+        }, 1000)
+
+    } catch (err) {
+        console.error('❌ Error al iniciar sesión:', err)
+        
+        // Manejar diferentes tipos de errores
+        if (err?.status === 401 || err?.statusCode === 401) {
+        error.value = 'Usuario no Autorizado'
+        } else if (err?.message?.includes('Network') || err?.message?.includes('fetch')) {
+        error.value = 'Error de conexión. Verifica tu red.'
+        } else {
+        // Siempre mostrar "Usuario no Autorizado" para errores de autenticación
+        error.value = 'Usuario no Autorizado'
+        }
+    } finally {
+        isLoading.value = false
+    }
+    }
+
+    // Verificar si ya hay una sesión activa al cargar la página
+    onMounted(() => {
+    if (hasToken()) {
+        console.log('✅ Token encontrado, redirigiendo a index...')
+        navigateTo('/')
+    }
+    })
+</script>

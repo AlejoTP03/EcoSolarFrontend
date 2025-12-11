@@ -130,9 +130,16 @@ const obtenerNombreCliente = (clientId) => {
 // Obtener equipos del proyecto
 const obtenerEquiposProyecto = async (proyectoId) => {
     try {
+        if (!hasToken()) {
+            await navigateTo('/login')
+            return []
+        }
+
         console.log(`🔍 [GET] Obteniendo equipos para proyecto: ${proyectoId}`)
         
-        const response = await $fetch(`http://localhost:4000/proyect/${proyectoId}/teams`)
+        const response = await $fetch(`http://localhost:4000/proyect/${proyectoId}/teams`, {
+            headers: getAuthHeaders()
+        })
         console.log(`✅ Respuesta equipos proyecto ${proyectoId}:`, response)
         
         // MANEJAR LA ESTRUCTURA ESPECÍFICA DE LA RESPUESTA
@@ -147,6 +154,12 @@ const obtenerEquiposProyecto = async (proyectoId) => {
         return []
     } catch (error) {
         console.error(`❌ Error obteniendo equipos para proyecto ${proyectoId}:`, error)
+        
+        // Si es error 401, redirigir al login
+        if (error?.status === 401 || error?.statusCode === 401) {
+            await navigateTo('/login')
+            return []
+        }
         
         // Si el endpoint no existe, retornar array vacío
         if (error.status === 404) {
@@ -251,10 +264,20 @@ const loadFromLocalStorage = () => {
     return null
 }
 
+// Usar el composable para obtener el token
+const { getAuthHeaders, hasToken } = useAuthToken()
+
 // Función para obtener clientes
 const fetchClientes = async () => {
     try {
-        const response = await $fetch('http://localhost:4000/client')
+        if (!hasToken()) {
+            await navigateTo('/login')
+            return
+        }
+
+        const response = await $fetch('http://localhost:4000/client', {
+            headers: getAuthHeaders()
+        })
         if (response && response['Todos los clientes']) {
             clientes.value = response['Todos los clientes']
         } else if (Array.isArray(response)) {
@@ -262,11 +285,22 @@ const fetchClientes = async () => {
         }
     } catch (error) {
         console.error('Error cargando clientes:', error)
+        if (error?.status === 401 || error?.statusCode === 401) {
+            await navigateTo('/login')
+        }
     }
 }
 
 // Función para obtener proyectos desde el backend
 const fetchProyectos = async () => {
+    // Verificar token antes de hacer la petición
+    if (!hasToken()) {
+        console.warn('⚠️ No hay token de autenticación')
+        error.value = new Error('No autenticado. Por favor, inicia sesión.')
+        await navigateTo('/login')
+        return
+    }
+
     pending.value = true
     error.value = null
     
@@ -280,9 +314,7 @@ const fetchProyectos = async () => {
         // Cargar proyectos
         const data = await $fetch('http://localhost:4000/proyect', {
             method: 'GET',
-            headers: {
-                'Content-Type': 'application/json'
-            }
+            headers: getAuthHeaders()
         })
         
         console.log('📨 Respuesta proyectos:', data)
@@ -308,6 +340,13 @@ const fetchProyectos = async () => {
     } catch (err) {
         error.value = err
         console.error('❌ Error fetching projects:', err)
+        
+        // Si es error 401, el token puede ser inválido
+        if (err?.status === 401 || err?.statusCode === 401) {
+            console.warn('⚠️ Token inválido o expirado, redirigiendo al login...')
+            await navigateTo('/login')
+            return
+        }
         
         // Intentar cargar del cache como respaldo
         const cachedData = loadFromLocalStorage()
@@ -374,13 +413,17 @@ const cancelarEliminacion = () => {
 // Función para eliminar en el backend
 const eliminarProyectoBackend = async (proyectoId) => {
     try {
+        // Verificar token antes de eliminar
+        if (!hasToken()) {
+            await navigateTo('/login')
+            throw new Error('No autenticado')
+        }
+
         console.log(`🗑️ [DELETE] Eliminando proyecto: ${proyectoId}`)
         
         const response = await $fetch(`http://localhost:4000/proyect/${proyectoId}`, {
             method: 'DELETE',
-            headers: {
-                'Content-Type': 'application/json'
-            }
+            headers: getAuthHeaders()
         })
         
         console.log('✅ Proyecto eliminado correctamente:', response)
@@ -393,12 +436,25 @@ const eliminarProyectoBackend = async (proyectoId) => {
             status: error.status,
             url: error.url
         })
+        
+        // Si es error 401, redirigir al login
+        if (error?.status === 401 || error?.statusCode === 401) {
+            await navigateTo('/login')
+        }
+        
         throw new Error('No se pudo eliminar el proyecto')
     }
 }
 
 // Cargar proyectos al montar el componente
-onMounted(() => {
+onMounted(async () => {
+    // Verificar si hay token antes de cargar datos
+    if (!hasToken()) {
+        console.warn('⚠️ No hay token, redirigiendo al login...')
+        await navigateTo('/login')
+        return
+    }
+
     console.log('🎬 Componente montado - Iniciando carga...')
     const cachedData = loadFromLocalStorage()
     if (cachedData && cachedData.length > 0) {
