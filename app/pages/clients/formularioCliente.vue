@@ -171,6 +171,14 @@ const limpiarStorage = () => {
 
 // Cargar datos del cliente si estamos en modo edición
 onMounted(async () => {
+    // Verificar si hay token antes de cargar datos
+    const { hasToken } = useAuthToken()
+    if (!hasToken()) {
+        console.warn('⚠️ No hay token, redirigiendo al login...')
+        await navigateTo('/login')
+        return
+    }
+
     if (esEdicion.value && clienteId.value) {
         await cargarCliente()
     } else {
@@ -211,8 +219,18 @@ const cargarCliente = async () => {
             console.log('✅ Cliente cargado desde cache')
         }
 
+        // Usar el composable para obtener el token
+        const { getAuthHeaders, hasToken } = useAuthToken()
+
         // Siempre hacer la petición para tener datos actualizados
-        const response = await $fetch(`http://localhost:4000/client/${clienteId.value}`)
+        if (!hasToken()) {
+            await navigateTo('/login')
+            return
+        }
+
+        const response = await $fetch(`http://localhost:4000/client/${clienteId.value}`, {
+            headers: getAuthHeaders()
+        })
         
         if (response && response['Cliente solicitado']) {
             const cliente = response['Cliente solicitado']
@@ -233,6 +251,10 @@ const cargarCliente = async () => {
         }
     } catch (error) {
         console.error('Error al cargar cliente:', error)
+        if (error?.status === 401 || error?.statusCode === 401) {
+            await navigateTo('/login')
+            return
+        }
         mostrarToast('error', 'Error', 'No se pudo cargar la información del cliente')
     }
 }
@@ -248,6 +270,14 @@ const agregarCliente = async () => {
             return
         }
 
+        // Usar el composable para obtener el token
+        const { getAuthHeaders, hasToken } = useAuthToken()
+
+        if (!hasToken()) {
+            await navigateTo('/login')
+            return
+        }
+
         // Enviar datos al servidor usando $fetch
         const response = await $fetch('http://localhost:4000/client', {
             method: 'POST',
@@ -258,9 +288,7 @@ const agregarCliente = async () => {
                 telefono: formData.telefono,
                 correo: formData.correo
             },
-            headers: {
-                'Content-Type': 'application/json'
-            }
+            headers: getAuthHeaders()
         })
 
         console.log('Respuesta del servidor:', response)
@@ -270,6 +298,10 @@ const agregarCliente = async () => {
         
     } catch (error) {
         console.error('Error al agregar cliente:', error)
+        if (error?.status === 401 || error?.statusCode === 401) {
+            await navigateTo('/login')
+            return
+        }
         mostrarToast('error', 'Error', 'Error al agregar cliente. Por favor, intente nuevamente.')
     }
 }
@@ -285,6 +317,14 @@ const actualizarCliente = async () => {
             return
         }
 
+        // Usar el composable para obtener el token
+        const { getAuthHeaders, hasToken } = useAuthToken()
+
+        if (!hasToken()) {
+            await navigateTo('/login')
+            return
+        }
+
         // Actualizar datos en el servidor usando $fetch
         const response = await $fetch(`http://localhost:4000/client/${clienteId.value}`, {
             method: 'PUT',
@@ -295,9 +335,7 @@ const actualizarCliente = async () => {
                 telefono: formData.telefono,
                 correo: formData.correo
             },
-            headers: {
-                'Content-Type': 'application/json'
-            }
+            headers: getAuthHeaders()
         })
 
         console.log('Respuesta del servidor:', response)
@@ -314,6 +352,10 @@ const actualizarCliente = async () => {
         
     } catch (error) {
         console.error('Error al actualizar cliente:', error)
+        if (error?.status === 401 || error?.statusCode === 401) {
+            await navigateTo('/login')
+            return
+        }
         mostrarToast('error', 'Error', 'Error al actualizar cliente. Por favor, intente nuevamente.')
     }
 }

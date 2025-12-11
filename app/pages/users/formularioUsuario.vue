@@ -160,6 +160,14 @@ const limpiarStorage = () => {
 
 // Cargar datos del usuario si estamos en modo edición
 onMounted(async () => {
+    // Verificar si hay token antes de cargar datos
+    const { hasToken } = useAuthToken()
+    if (!hasToken()) {
+        console.warn('⚠️ No hay token, redirigiendo al login...')
+        await navigateTo('/login')
+        return
+    }
+
     if (esEdicion.value && usuarioId.value) {
         // En modo edición, cargar datos del usuario desde el backend
         await cargarUsuario()
@@ -202,8 +210,18 @@ const cargarUsuario = async () => {
             }
         }
 
+        // Usar el composable para obtener el token
+        const { getAuthHeaders, hasToken } = useAuthToken()
+
         // Siempre hacer la petición para tener datos actualizados
-        const response = await $fetch(`http://localhost:4000/user/${usuarioId.value}`)
+        if (!hasToken()) {
+            await navigateTo('/login')
+            return
+        }
+
+        const response = await $fetch(`http://localhost:4000/user/${usuarioId.value}`, {
+            headers: getAuthHeaders()
+        })
         
         console.log('📨 Respuesta completa del servidor:', response)
         
@@ -237,6 +255,12 @@ const cargarUsuario = async () => {
         }
     } catch (error) {
         console.error('❌ Error al cargar usuario:', error)
+        
+        if (error?.status === 401 || error?.statusCode === 401) {
+            await navigateTo('/login')
+            return
+        }
+        
         console.error('❌ Detalles:', {
             message: error?.message,
             status: error?.statusCode || error?.status,
@@ -279,13 +303,19 @@ const agregarUsuario = async () => {
         console.log('📤 URL:', 'http://localhost:4000/user')
         console.log('📤 Body completo:', JSON.stringify(bodyData, null, 2))
 
+        // Usar el composable para obtener el token
+        const { getAuthHeaders, hasToken } = useAuthToken()
+
+        if (!hasToken()) {
+            await navigateTo('/login')
+            return
+        }
+
         // Enviar datos al servidor usando $fetch
         const response = await $fetch('http://localhost:4000/user', {
             method: 'POST',
             body: bodyData,
-            headers: {
-                'Content-Type': 'application/json'
-            }
+            headers: getAuthHeaders()
         })
 
         console.log('✅ Respuesta del servidor:', response)
@@ -300,6 +330,12 @@ const agregarUsuario = async () => {
         
     } catch (error) {
         console.error('❌ Error completo al agregar usuario:', error)
+        
+        if (error?.status === 401 || error?.statusCode === 401) {
+            await navigateTo('/login')
+            return
+        }
+        
         console.error('❌ Detalles del error:', {
             message: error?.message,
             status: error?.statusCode || error?.status,
@@ -335,13 +371,19 @@ const actualizarUsuario = async () => {
         console.log('📤 URL:', `http://localhost:4000/user/${usuarioId.value}`)
         console.log('📤 Body completo:', JSON.stringify(bodyData, null, 2))
 
+        // Usar el composable para obtener el token
+        const { getAuthHeaders, hasToken } = useAuthToken()
+
+        if (!hasToken()) {
+            await navigateTo('/login')
+            return
+        }
+
         // Actualizar datos en el servidor usando $fetch
         const response = await $fetch(`http://localhost:4000/user/${usuarioId.value}`, {
             method: 'PUT',
             body: bodyData,
-            headers: {
-                'Content-Type': 'application/json'
-            }
+            headers: getAuthHeaders()
         })
 
         console.log('✅ Respuesta del servidor:', response)
@@ -358,6 +400,12 @@ const actualizarUsuario = async () => {
         
     } catch (error) {
         console.error('❌ Error completo al actualizar usuario:', error)
+        
+        if (error?.status === 401 || error?.statusCode === 401) {
+            await navigateTo('/login')
+            return
+        }
+        
         console.error('❌ Detalles del error:', {
             message: error?.message,
             status: error?.statusCode || error?.status,

@@ -275,12 +275,22 @@ const limpiarStorage = () => {
     }
 }
 
+// Usar el composable para obtener el token
+const { getAuthHeaders, hasToken } = useAuthToken()
+
 // Función para obtener equipos desde el backend
 const fetchEquipos = async () => {
     equiposPending.value = true
     console.log('🔍 [DEBUG] Iniciando fetchEquipos...')
     try {
-        const response = await $fetch(API_ENDPOINTS.equipos)
+        if (!hasToken()) {
+            await navigateTo('/login')
+            return
+        }
+
+        const response = await $fetch(API_ENDPOINTS.equipos, {
+            headers: getAuthHeaders()
+        })
         console.log('🔍 [DEBUG] Respuesta completa de equipos:', response)
         
         if (response && response['Todos los equipos']) {
@@ -295,6 +305,10 @@ const fetchEquipos = async () => {
         }
     } catch (error) {
         console.error('🔍 [DEBUG] Error en fetchEquipos:', error)
+        if (error?.status === 401 || error?.statusCode === 401) {
+            await navigateTo('/login')
+            return
+        }
         mostrarToast('error', 'Error', 'No se pudieron cargar los equipos')
     } finally {
         equiposPending.value = false
@@ -307,7 +321,14 @@ const fetchClientes = async () => {
     clientesPending.value = true
     console.log('🔍 [DEBUG] Iniciando fetchClientes...')
     try {
-        const response = await $fetch(API_ENDPOINTS.clientes)
+        if (!hasToken()) {
+            await navigateTo('/login')
+            return
+        }
+
+        const response = await $fetch(API_ENDPOINTS.clientes, {
+            headers: getAuthHeaders()
+        })
         console.log('🔍 [DEBUG] Respuesta completa de clientes:', response)
         
         if (response && response['Todos los clientes']) {
@@ -322,6 +343,10 @@ const fetchClientes = async () => {
         }
     } catch (error) {
         console.error('🔍 [DEBUG] Error en fetchClientes:', error)
+        if (error?.status === 401 || error?.statusCode === 401) {
+            await navigateTo('/login')
+            return
+        }
         mostrarToast('error', 'Error', 'No se pudieron cargar los clientes')
     } finally {
         clientesPending.value = false
@@ -353,8 +378,15 @@ const cargarProyecto = async () => {
         }
 
         // Siempre hacer la petición para tener datos actualizados
+        if (!hasToken()) {
+            await navigateTo('/login')
+            return
+        }
+
         console.log('🔍 [DEBUG] Haciendo petición a API para proyecto:', proyectoId.value)
-        const response = await $fetch(API_ENDPOINTS.obtenerProyecto(proyectoId.value))
+        const response = await $fetch(API_ENDPOINTS.obtenerProyecto(proyectoId.value), {
+            headers: getAuthHeaders()
+        })
         console.log('🔍 [DEBUG] Respuesta completa del proyecto:', response)
         
         if (response && response['Proyecto solicitado']) {
@@ -390,12 +422,23 @@ const cargarProyecto = async () => {
         }
     } catch (error) {
         console.error('🔍 [DEBUG] Error al cargar proyecto:', error)
+        if (error?.status === 401 || error?.statusCode === 401) {
+            await navigateTo('/login')
+            return
+        }
         mostrarToast('error', 'Error', 'No se pudo cargar la información del proyecto')
     }
 }
 
 // Inicializar componente
 onMounted(async () => {
+    // Verificar si hay token antes de cargar datos
+    if (!hasToken()) {
+        console.warn('⚠️ No hay token, redirigiendo al login...')
+        await navigateTo('/login')
+        return
+    }
+
     console.log('🔍 [DEBUG] Componente montado, iniciando carga de datos...')
     await Promise.all([fetchEquipos(), fetchClientes()])
     console.log('🔍 [DEBUG] Datos básicos cargados:', {
@@ -500,12 +543,15 @@ const agregarProyecto = async () => {
         console.log('🔍 [DEBUG] Enviando petición POST a', API_ENDPOINTS.agregarProyecto)
         console.log('🔍 [DEBUG] Body enviado:', JSON.stringify(datosEnvio, null, 2))
         
+        if (!hasToken()) {
+            await navigateTo('/login')
+            return
+        }
+
         const response = await $fetch(API_ENDPOINTS.agregarProyecto, {
             method: 'POST',
             body: datosEnvio,
-            headers: {
-                'Content-Type': 'application/json'
-            }
+            headers: getAuthHeaders()
         })
 
         console.log('🔍 [DEBUG] Respuesta del servidor EXITOSA:', response)
@@ -520,6 +566,12 @@ const agregarProyecto = async () => {
         
     } catch (error) {
         console.error('🔍 [DEBUG] Error completo al agregar proyecto:', error)
+        
+        if (error?.status === 401 || error?.statusCode === 401) {
+            await navigateTo('/login')
+            return
+        }
+        
         console.error('🔍 [DEBUG] Mensaje de error:', error.message)
         console.error('🔍 [DEBUG] Stack trace:', error.stack)
         
@@ -586,12 +638,15 @@ const actualizarProyecto = async () => {
         console.log(`🔍 [DEBUG] Enviando petición PUT a`, endpointActualizacion)
         console.log('🔍 [DEBUG] Body enviado:', JSON.stringify(datosActualizacion, null, 2))
         
+        if (!hasToken()) {
+            await navigateTo('/login')
+            return
+        }
+
         const response = await $fetch(endpointActualizacion, {
             method: 'PUT',
             body: datosActualizacion,
-            headers: {
-                'Content-Type': 'application/json'
-            }
+            headers: getAuthHeaders()
         })
 
         console.log('🔍 [DEBUG] Respuesta del servidor:', response)
@@ -608,6 +663,12 @@ const actualizarProyecto = async () => {
         
     } catch (error) {
         console.error('🔍 [DEBUG] Error completo al actualizar proyecto:', error)
+        
+        if (error?.status === 401 || error?.statusCode === 401) {
+            await navigateTo('/login')
+            return
+        }
+        
         console.error('🔍 [DEBUG] Mensaje de error:', error.message)
         console.error('🔍 [DEBUG] Stack trace:', error.stack)
         

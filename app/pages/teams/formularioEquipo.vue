@@ -146,8 +146,18 @@ const cargarEquipo = async () => {
             }
         }
 
+        // Usar el composable para obtener el token
+        const { getAuthHeaders, hasToken } = useAuthToken()
+
+        if (!hasToken()) {
+            await navigateTo('/login')
+            return
+        }
+
         // Usar el mismo endpoint que en gestionEquipos.vue
-        const response = await $fetch('http://localhost:4000/team/workers/count')
+        const response = await $fetch('http://localhost:4000/team/workers/count', {
+            headers: getAuthHeaders()
+        })
         
         let todosLosEquipos = []
         
@@ -180,11 +190,23 @@ const cargarEquipo = async () => {
         }
         
     } catch (error) {
+        if (error?.status === 401 || error?.statusCode === 401) {
+            await navigateTo('/login')
+            return
+        }
         mostrarToast('error', 'Error', 'No se pudo cargar la información del equipo')
     }
 }
 
 onMounted(async () => {
+    // Verificar si hay token antes de cargar datos
+    const { hasToken } = useAuthToken()
+    if (!hasToken()) {
+        console.warn('⚠️ No hay token, redirigiendo al login...')
+        await navigateTo('/login')
+        return
+    }
+
     if (esEdicion.value && equipoId.value) {
         await cargarEquipo()
     } else {
@@ -215,16 +237,27 @@ const agregarEquipo = async () => {
             especialidad: formData.especialidad.trim()
         }
 
+        const { getAuthHeaders, hasToken } = useAuthToken()
+
+        if (!hasToken()) {
+            await navigateTo('/login')
+            return
+        }
+
         const response = await $fetch('http://localhost:4000/team', {
             method: 'POST',
             body,
-            headers: { 'Content-Type': 'application/json' }
+            headers: getAuthHeaders()
         })
 
         mostrarToast('exito', 'Éxito', 'Equipo agregado correctamente')
         limpiarFormulario()
         limpiarStorage()
     } catch (error) {
+        if (error?.status === 401 || error?.statusCode === 401) {
+            await navigateTo('/login')
+            return
+        }
         mostrarToast('error', 'Error', 'Error al agregar equipo. Por favor, intente nuevamente.')
     }
 }
@@ -240,10 +273,17 @@ const actualizarEquipo = async () => {
             especialidad: formData.especialidad.trim()
         }
 
+        const { getAuthHeaders, hasToken } = useAuthToken()
+
+        if (!hasToken()) {
+            await navigateTo('/login')
+            return
+        }
+
         const response = await $fetch(`http://localhost:4000/team/${equipoId.value}`, {
             method: 'PUT',
             body,
-            headers: { 'Content-Type': 'application/json' }
+            headers: getAuthHeaders()
         })
 
         mostrarToast('exito', 'Éxito', 'Equipo actualizado correctamente')
@@ -257,6 +297,10 @@ const actualizarEquipo = async () => {
             navigateTo('/teams/gestionEquipos')
         }, 1500)
     } catch (error) {
+        if (error?.status === 401 || error?.statusCode === 401) {
+            await navigateTo('/login')
+            return
+        }
         mostrarToast('error', 'Error', 'Error al actualizar equipo. Por favor, intente nuevamente.')
     }
 }

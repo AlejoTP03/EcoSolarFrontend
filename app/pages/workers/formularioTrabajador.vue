@@ -168,10 +168,20 @@ const limpiarStorage = () => {
 const isEmptyString = (value) => value == null || (typeof value === 'string' && value.trim() === '')
 const isInvalidSalario = (value) => value == null || (typeof value === 'string' && value.trim() === '') || isNaN(Number(value))
 
+// Usar el composable para obtener el token
+const { getAuthHeaders, hasToken } = useAuthToken()
+
 const fetchEquipos = async () => {
     equiposPending.value = true
     try {
-        const response = await $fetch('http://localhost:4000/team')
+        if (!hasToken()) {
+            await navigateTo('/login')
+            return
+        }
+
+        const response = await $fetch('http://localhost:4000/team', {
+            headers: getAuthHeaders()
+        })
         
         if (response && response['Todos los equipos']) {
             equipos.value = response['Todos los equipos']
@@ -181,6 +191,10 @@ const fetchEquipos = async () => {
             equipos.value = []
         }
     } catch (error) {
+        if (error?.status === 401 || error?.statusCode === 401) {
+            await navigateTo('/login')
+            return
+        }
         mostrarToast('error', 'Error', 'No se pudieron cargar los equipos')
     } finally {
         equiposPending.value = false
@@ -206,7 +220,14 @@ const cargarTrabajador = async () => {
             }
         }
 
-        const response = await $fetch('http://localhost:4000/worker')
+        if (!hasToken()) {
+            await navigateTo('/login')
+            return
+        }
+
+        const response = await $fetch('http://localhost:4000/worker', {
+            headers: getAuthHeaders()
+        })
         
         let todosLosTrabajadores = []
         
@@ -245,11 +266,22 @@ const cargarTrabajador = async () => {
         }
         
     } catch (error) {
+        if (error?.status === 401 || error?.statusCode === 401) {
+            await navigateTo('/login')
+            return
+        }
         mostrarToast('error', 'Error', 'No se pudo cargar la información del trabajador')
     }
 }
 
 onMounted(async () => {
+    // Verificar si hay token antes de cargar datos
+    if (!hasToken()) {
+        console.warn('⚠️ No hay token, redirigiendo al login...')
+        await navigateTo('/login')
+        return
+    }
+
     await fetchEquipos()
     
     if (esEdicion.value && trabajadorId.value) {
@@ -285,16 +317,25 @@ const agregarTrabajador = async () => {
             teamId: normalizeTeamId(formData.teamId)
         }
 
+        if (!hasToken()) {
+            await navigateTo('/login')
+            return
+        }
+
         const response = await $fetch('http://localhost:4000/worker', {
             method: 'POST',
             body,
-            headers: { 'Content-Type': 'application/json' }
+            headers: getAuthHeaders()
         })
 
         mostrarToast('exito', 'Éxito', 'Trabajador agregado correctamente')
         limpiarFormulario()
         limpiarStorage()
     } catch (error) {
+        if (error?.status === 401 || error?.statusCode === 401) {
+            await navigateTo('/login')
+            return
+        }
         mostrarToast('error', 'Error', 'Error al agregar trabajador. Por favor, intente nuevamente.')
     }
 }
@@ -313,10 +354,15 @@ const actualizarTrabajador = async () => {
             teamId: normalizeTeamId(formData.teamId)
         }
 
+        if (!hasToken()) {
+            await navigateTo('/login')
+            return
+        }
+
         const response = await $fetch(`http://localhost:4000/worker/${trabajadorId.value}`, {
             method: 'PUT',
             body,
-            headers: { 'Content-Type': 'application/json' }
+            headers: getAuthHeaders()
         })
 
         mostrarToast('exito', 'Éxito', 'Trabajador actualizado correctamente')
@@ -330,6 +376,10 @@ const actualizarTrabajador = async () => {
             navigateTo('/gestionTrabajador')
         }, 1500)
     } catch (error) {
+        if (error?.status === 401 || error?.statusCode === 401) {
+            await navigateTo('/login')
+            return
+        }
         mostrarToast('error', 'Error', 'Error al actualizar trabajador. Por favor, intente nuevamente.')
     }
 }
